@@ -1,0 +1,13 @@
+node_modules/
+.next/
+data/
+web/data/
+tailscale/state/
+.env
+web/.env
+next-env.d.ts
+*.tsbuildinfo
+*.log
+worker/profile/
+worker/.env
+__pycache__/

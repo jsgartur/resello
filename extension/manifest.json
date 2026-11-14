@@ -1,0 +1,103 @@
+{
+  "manifest_version": 3,
+  "name": "Resello Connect",
+  "version": "0.3.0",
+  "description": "Verbindet dein eingeloggtes Vinted-Konto mit deinem Resello-Cockpit.",
+  "permissions": [
+    "storage",
+    "alarms",
+    "scripting",
+    "tabs"
+  ],
+  "host_permissions": [
+    "https://www.vinted.de/*",
+    "https://www.vinted.at/*",
+    "https://www.vinted.fr/*",
+    "https://www.vinted.nl/*",
+    "https://www.vinted.be/*",
+    "https://www.vinted.it/*",
+    "https://www.vinted.es/*",
+    "https://www.vinted.pl/*",
+    "https://www.vinted.cz/*",
+    "https://www.vinted.lt/*",
+    "https://www.vinted.lu/*",
+    "https://www.vinted.pt/*",
+    "https://www.vinted.sk/*",
+    "https://www.vinted.hu/*",
+    "https://www.vinted.ro/*",
+    "https://www.vinted.se/*",
+    "https://www.vinted.fi/*",
+    "https://www.vinted.dk/*",
+    "https://www.vinted.co.uk/*",
+    "https://www.vinted.com/*",
+    "https://www.vinted.ie/*",
+    "https://www.vinted.gr/*",
+    "https://www.vinted.hr/*",
+    "https://www.vinted.ee/*",
+    "https://www.vinted.lv/*",
+    "https://www.vinted.si/*",
+    "http://localhost:3010/*",
+    "http://127.0.0.1:3010/*",
+    "https://*.ts.net/*"
+  ],
+  "optional_host_permissions": [
+    "https://*/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.vinted.de/*",
+        "https://www.vinted.at/*",
+        "https://www.vinted.fr/*",
+        "https://www.vinted.nl/*",
+        "https://www.vinted.be/*",
+        "https://www.vinted.it/*",
+        "https://www.vinted.es/*",
+        "https://www.vinted.pl/*",
+        "https://www.vinted.cz/*",
+        "https://www.vinted.lt/*",
+        "https://www.vinted.lu/*",
+        "https://www.vinted.pt/*",
+        "https://www.vinted.sk/*",
+        "https://www.vinted.hu/*",
+        "https://www.vinted.ro/*",
+        "https://www.vinted.se/*",
+        "https://www.vinted.fi/*",
+        "https://www.vinted.dk/*",
+        "https://www.vinted.co.uk/*",
+        "https://www.vinted.com/*",
+        "https://www.vinted.ie/*",
+        "https://www.vinted.gr/*",
+        "https://www.vinted.hr/*",
+        "https://www.vinted.ee/*",
+        "https://www.vinted.lv/*",
+        "https://www.vinted.si/*"
+      ],
+      "js": [
+        "vinted-core.js",
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "http://localhost:3010/*",
+        "http://127.0.0.1:3010/*",
+        "https://*.ts.net/*"
+      ],
+      "js": [
+        "connect.js"
+      ],
+      "run_at": "document_start"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Resello Connect"
+  }
+}

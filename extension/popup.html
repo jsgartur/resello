@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<style>
+  body { width: 320px; margin: 0; padding: 14px; font: 13px system-ui, sans-serif; background: #0f0f10; color: #ececf1; }
+  h1 { font-size: 15px; margin: 0 0 2px; } .muted { color: #8b8b95; font-size: 12px; }
+  label { display: block; margin: 10px 0 3px; color: #8b8b95; font-size: 11px; }
+  input, select { width: 100%; box-sizing: border-box; padding: 7px 9px; border-radius: 7px; border: 1px solid #2a2a30; background: #1f1f23; color: #fff; }
+  button { margin-top: 12px; width: 100%; padding: 8px; border: 0; border-radius: 7px; background: #f59e0b; font-weight: 600; cursor: pointer; }
+  button.ghost { background: #1f1f23; color: #fff; border: 1px solid #2a2a30; }
+  #status { margin-top: 12px; padding: 8px; border-radius: 7px; background: #17171a; border: 1px solid #2a2a30; font-size: 12px; }
+  .err { color: #f87171; } .ok { color: #34d399; }
+</style>
+</head>
+<body>
+  <h1>Resello Connect</h1>
+  <div class="muted" id="user">Nicht verbunden</div>
+  <p class="muted" style="margin-top:10px">Verbinden geht am einfachsten im Dashboard unter <b>Vinted-Konten → Jetzt verbinden</b>.</p>
+  <button id="sync">Jetzt synchronisieren</button>
+  <div id="status">–</div>
+  <details style="margin-top:12px"><summary class="muted" style="cursor:pointer">Manuell einrichten</summary>
+  <label>Dashboard-URL</label><input id="dashboardUrl" placeholder="http://localhost:3010" />
+  <label>Erweiterungs-Token (EXTENSION_TOKEN)</label><input id="token" type="password" />
+  <label>Konto-ID (aus „Vinted-Konten“)</label><input id="accountId" />
+  <label>Vinted-Seite</label>
+  <select id="domain">
+    <option>vinted.de</option><option>vinted.at</option><option>vinted.fr</option><option>vinted.nl</option>
+    <option>vinted.be</option><option>vinted.it</option><option>vinted.es</option><option>vinted.pl</option><option>vinted.cz</option>
+  </select>
+  <button id="save" class="ghost">Speichern & verbinden</button>
+  </details>
+  <script src="popup.js"></script>
+</body>
+</html>

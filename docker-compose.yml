@@ -1,0 +1,32 @@
+name: resello
+
+services:
+  # HTTPS über Tailscale: https://resello.<dein-tailnet>.ts.net – kein offener Port nötig
+  tailscale:
+    image: tailscale/tailscale:stable
+    hostname: ${TS_HOSTNAME:-resello}
+    restart: unless-stopped
+    environment:
+      TS_AUTHKEY: ${TS_AUTHKEY:-}
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_SERVE_CONFIG: /config/serve.json
+      TS_USERSPACE: "true"
+    volumes:
+      - ./tailscale/state:/var/lib/tailscale
+      - ./tailscale/serve.json:/config/serve.json:ro
+    ports:
+      - "127.0.0.1:3010:3010"
+
+  app:
+    build: .
+    image: resello:latest
+    restart: unless-stopped
+    init: true
+    network_mode: service:tailscale
+    depends_on:
+      - tailscale
+    env_file: .env
+    environment:
+      DATA_DIR: /data
+    volumes:
+      - ./data:/data
