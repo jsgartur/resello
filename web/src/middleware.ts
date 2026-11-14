@@ -9,9 +9,8 @@ export async function middleware(req: NextRequest) {
   if (PUBLIC.some((p) => pathname.startsWith(p))) return NextResponse.next();
   if (await isValidSession(req.cookies.get(SESSION_COOKIE)?.value)) return NextResponse.next();
   if (pathname.startsWith("/api/")) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const url = req.nextUrl.clone();
-  url.pathname = "/login";
-  return NextResponse.redirect(url);
+  // Relative Weiterleitung – funktioniert auch hinter Tailscale/Proxy (sonst landet man auf 0.0.0.0)
+  return new NextResponse(null, { status: 307, headers: { Location: "/login" } });
 }
 
 export const config = { matcher: ["/((?!_next|favicon.ico).*)"] };
