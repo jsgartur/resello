@@ -33,7 +33,7 @@ export default function Overview() {
 
   return (
     <>
-      <PageHeader title="Übersicht" sub="Dein Geschäft der letzten 30 Tage" />
+      <PageHeader title="Übersicht" sub={`Dein Geschäft der letzten 30 Tage · insgesamt ${d.orders.length} Verkäufe (${eur(d.orders.reduce((s, o) => s + (o.price ?? 0), 0))})`} />
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Stat label="Umsatz" value={eur(revenue)} />
         <Stat label="Bestellungen" value={String(list.length)} />

@@ -197,7 +197,7 @@ export function Studio() {
                 <div className="absolute inset-y-0 w-0.5 bg-white" style={{ left: `${split}%` }} />
                 <span className="absolute left-2 top-2 rounded bg-black/70 px-2 py-0.5 text-[11px]">Vorher</span>
                 <span className="absolute right-2 top-2 rounded bg-accent px-2 py-0.5 text-[11px] text-black">Nachher</span>
-                <input type="range" min={0} max={100} value={split} onChange={(e) => setSplit(Number(e.target.value))} className="absolute inset-x-0 bottom-3 mx-auto w-2/3 accent-amber-500" />
+                <input type="range" min={0} max={100} value={split} onChange={(e) => setSplit(Number(e.target.value))} className="absolute inset-x-0 bottom-3 mx-auto w-2/3 accent-teal-400" />
               </div>
             )}
           </div>

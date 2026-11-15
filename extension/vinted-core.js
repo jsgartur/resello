@@ -98,8 +98,29 @@
   }
 
   async function soldOrders() {
-    const r = await api("GET", "/api/v2/my_orders?type=sold&status=all&per_page=50&page=1");
-    return r?.my_orders ?? r?.orders ?? [];
+    // Mehrere Varianten probieren – Vinted ändert das gelegentlich
+    const variants = [
+      (p) => `/api/v2/my_orders?type=sold&status=all&per_page=50&page=${p}`,
+      (p) => `/api/v2/my_orders?type=sold&per_page=50&page=${p}`,
+      (p) => `/api/v2/my_orders?type=sold&status=completed&per_page=50&page=${p}`,
+    ];
+    let lastError = null;
+    for (const v of variants) {
+      try {
+        const all = [];
+        for (let page = 1; page <= 10; page++) {
+          const r = await api("GET", v(page));
+          const batch = r?.my_orders ?? r?.orders ?? r?.transactions ?? [];
+          all.push(...batch);
+          const total = r?.pagination?.total_pages ?? 1;
+          if (!batch.length || page >= total) break;
+          await jitter(600, 1400);
+        }
+        if (all.length) return all;
+      } catch (e) { lastError = e; }
+    }
+    if (lastError) throw lastError;
+    return [];
   }
 
   async function notifications() {

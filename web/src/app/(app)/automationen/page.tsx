@@ -68,7 +68,7 @@ export default function Automations() {
                   <p className="mt-1 text-sm text-muted">{r.desc}</p>
                 </div>
                 <label className="flex cursor-pointer items-center gap-2 text-sm">
-                  <input type="checkbox" name="enabled" defaultChecked={rule?.enabled} className="h-4 w-4 accent-amber-500" />
+                  <input type="checkbox" name="enabled" defaultChecked={rule?.enabled} className="h-4 w-4 accent-teal-400" />
                   Aktiv
                 </label>
               </div>
