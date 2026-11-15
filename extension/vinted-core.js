@@ -42,7 +42,8 @@
     let json = null;
     try { json = text ? JSON.parse(text) : null; } catch { /* HTML statt JSON */ }
     if (!res.ok) {
-      const msg = json?.message || json?.error || json?.errors?.[0]?.value || text.slice(0, 160);
+      const fieldErrors = Array.isArray(json?.errors) ? json.errors.map((e) => `${e.field ?? "?"}: ${e.value ?? e.message ?? JSON.stringify(e)}`).join("; ") : "";
+      const msg = [json?.message || json?.error || json?.message_code, fieldErrors].filter(Boolean).join(" – ") || text.slice(0, 200);
       const err = new Error(`Vinted ${res.status} bei ${method} ${path}: ${msg}`);
       err.status = res.status;
       throw err;
@@ -165,11 +166,48 @@
     return r.item;
   }
 
+  // Baut die Artikeldaten so auf, wie das Vinted-Upload-Formular sie sendet
+  function uploadPayload(it, { id, photoIds, price }) {
+    const amount = (v) => (v && typeof v === "object" ? Number(v.amount) : Number(v));
+    const colors = Array.isArray(it.color_ids) && it.color_ids.length ? it.color_ids : [it.color1_id, it.color2_id].filter(Boolean);
+    const photos = photoIds ?? (it.photos ?? []).map((p) => p.id);
+    return {
+      id: id ?? null,
+      currency: it.currency || it.price?.currency_code || "EUR",
+      temp_uuid: uuid(),
+      title: it.title,
+      description: it.description ?? "",
+      brand_id: it.brand_id ?? it.brand_dto?.id ?? null,
+      brand: it.brand ?? it.brand_title ?? it.brand_dto?.title ?? null,
+      size_id: it.size_id ?? null,
+      catalog_id: it.catalog_id,
+      isbn: it.isbn ?? null,
+      is_unisex: !!it.is_unisex,
+      status_id: it.status_id,
+      video_game_rating_id: it.video_game_rating_id ?? null,
+      price: price != null ? Number(price) : amount(it.price),
+      package_size_id: it.package_size_id,
+      shipment_prices: { domestic: null, international: null },
+      color_ids: colors,
+      assigned_photos: photos.map((pid) => ({ id: pid, orientation: 0 })),
+      measurement_length: it.measurement_length ?? null,
+      measurement_width: it.measurement_width ?? null,
+      item_attributes: it.item_attributes ?? [],
+      manufacturer: it.manufacturer ?? null,
+      manufacturer_labelling: it.manufacturer_labelling ?? null,
+    };
+  }
+
+  async function step(name, fn) {
+    try { return await fn(); } catch (e) { throw new Error(`${name}: ${e.message || e}`); }
+  }
+
   async function changePrice({ vinted_item_id, price }) {
-    const item = await getEditableItem(vinted_item_id);
-    item.price = Number(price);
+    const item = await step("Artikeldaten laden", () => getEditableItem(vinted_item_id));
     await jitter();
-    await api("PUT", `/api/v2/item_upload/items/${vinted_item_id}`, { item, feedback_id: null, parcel: null, upload_session_id: uuid() });
+    await step("Preis speichern", () => api("PUT", `/api/v2/item_upload/items/${vinted_item_id}`, {
+      item: uploadPayload(item, { id: Number(vinted_item_id), price }), feedback_id: null, parcel: null, upload_session_id: uuid(),
+    }));
     return { price };
   }
 
@@ -186,25 +224,27 @@
 
   /** Sicheres Neueinstellen: neuer Artikel wird erst erstellt, der alte erst danach gelöscht. */
   async function relist({ vinted_item_id }) {
-    const item = await getEditableItem(vinted_item_id);
+    const item = await step("Artikeldaten laden", () => getEditableItem(vinted_item_id));
     const photos = item.photos ?? [];
     if (!photos.length) throw new Error("Artikel hat keine Fotos");
 
     const photoIds = [];
-    for (const p of photos) {
+    for (const [i, p] of photos.entries()) {
       const url = p.full_size_url || p.url;
-      photoIds.push(await uploadPhotoFromUrl(url));
+      const pid = await step(`Foto ${i + 1} hochladen`, () => uploadPhotoFromUrl(url));
+      if (!pid) throw new Error(`Foto ${i + 1} hochladen: keine Foto-ID erhalten`);
+      photoIds.push(pid);
       await jitter(1000, 2500);
     }
 
-    const fresh = { ...item, id: null, assigned_photos: photoIds.map((id) => ({ id, orientation: 0 })) };
-    delete fresh.photos;
-    const created = await api("POST", "/api/v2/item_upload/items", { item: fresh, feedback_id: null, parcel: null, upload_session_id: uuid() });
+    const created = await step("Neuen Artikel anlegen", () => api("POST", "/api/v2/item_upload/items", {
+      item: uploadPayload(item, { id: null, photoIds }), feedback_id: null, parcel: null, upload_session_id: uuid(),
+    }));
     const newId = created?.item?.id;
     if (!newId) throw new Error("Neuer Artikel wurde nicht erstellt – alter bleibt online");
 
     await jitter(3000, 6000);
-    await api("POST", `/api/v2/items/${vinted_item_id}/delete`);
+    await step("Alten Artikel löschen (neuer ist schon online)", () => api("POST", `/api/v2/items/${vinted_item_id}/delete`));
     return { new_item_id: newId, new_url: created?.item?.url ?? null };
   }
 
