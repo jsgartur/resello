@@ -77,7 +77,7 @@ export default async function Listings({ searchParams }: { searchParams: Promise
                   <div className="flex flex-wrap gap-2">
                   {jobs.map((j) => (
                     <div key={j.id} className={`mt-2 inline-flex items-center gap-2 rounded-full border px-2.5 py-0.5 text-xs ${retrying(j) ? "border-amber-900 bg-amber-950/30 text-amber-300" : "border-accent/40 bg-accent/10 text-accent"}`} title={j.error ?? ""}>
-                      {j.status === "running" ? "⏳ Wird gerade ausgeführt…" : retrying(j) ? `⚠ Fehlgeschlagen, neuer Versuch (${j.attempts}/3)` : `🕓 ${JOB_TEXT[j.type] ?? j.type} – wartet auf Chrome`}{j.type === "price_change" ? ` (${eur(j.payload.price)})` : ""}
+                      {j.status === "running" ? "⏳ Wird gerade ausgeführt…" : retrying(j) ? `⚠ Fehlgeschlagen, neuer Versuch (${j.attempts}/3): ${(j.error ?? "").slice(0, 120)}` : `🕓 ${JOB_TEXT[j.type] ?? j.type} – wartet auf Chrome`}{j.type === "price_change" ? ` (${eur(j.payload.price)})` : ""}
                       {j.status === "queued" && <form action={cancelJob.bind(null, j.id)}><button title="Abbrechen"><X size={12} /></button></form>}
                     </div>
                   ))}
