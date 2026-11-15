@@ -82,8 +82,10 @@ async function tick({ forceSync = false } = {}) {
     // Regelmäßiger Sync
     if (forceSync || !s.lastSync || Date.now() - s.lastSync > SYNC_EVERY_MIN * 60000) {
       await setStatus("Synchronisiere…");
-      const stats = await pushSync(s, await inTab(tab.id, { cmd: "sync" }));
-      await setStatus(`Sync ok: ${stats.items} Artikel, ${stats.conversations} Chats`);
+      const data = await inTab(tab.id, { cmd: "sync" });
+      const stats = await pushSync(s, data);
+      if (data.errors?.length) await setStatus(`Sync teilweise: ${stats.items} Artikel, ${stats.conversations} Chats – Fehler: ${data.errors.join(" | ")}`, false);
+      else await setStatus(`Sync ok: ${stats.items} Artikel, ${stats.conversations} Chats`);
     }
 
     // Einen Job pro Minute (schont das Konto)
@@ -104,7 +106,13 @@ async function tick({ forceSync = false } = {}) {
       await setStatus(`Fehler bei ${job.type}: ${e.message}`, false);
     }
   } catch (e) {
-    await setStatus(String(e.message || e), false);
+    const msg = String(e.message || e);
+    await setStatus(msg, false);
+    // Fehler auch im Dashboard anzeigen
+    const st = await settings();
+    if (st.dashboardUrl && st.token && st.accountId) {
+      await dashboard(st, "/api/ext/sync", { account_id: st.accountId, errors: [msg] }).catch(() => {});
+    }
   } finally {
     running = false;
   }

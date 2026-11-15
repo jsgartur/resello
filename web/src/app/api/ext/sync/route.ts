@@ -72,11 +72,17 @@ export async function POST(req: NextRequest) {
       s.favourites++;
     }
 
-    Object.assign(acc, { last_sync_at: new Date().toISOString(), status: "connected", last_error: null });
-    return s;
+    const errors: string[] = Array.isArray(body.errors) ? body.errors.map(String) : [];
+    const gotData = Array.isArray(body.items) || Array.isArray(body.conversations);
+    if (gotData) acc.last_sync_at = new Date().toISOString();
+    acc.last_error = errors.length ? errors.join(" | ").slice(0, 500) : null;
+    if (gotData) acc.status = "connected";
+    return { ...s, errors };
   });
 
   if (!stats) return NextResponse.json({ error: "Konto-ID nicht gefunden" }, { status: 404 });
-  log("sync", `Sync: ${stats.items} Artikel, ${stats.conversations} Chats, ${stats.orders} Verkäufe`, accountId);
+  log("sync", stats.errors.length && !stats.items && !stats.conversations
+    ? `Sync-Fehler: ${stats.errors.join(" | ").slice(0, 300)}`
+    : `Sync: ${stats.items} Artikel, ${stats.conversations} Chats, ${stats.orders} Verkäufe${stats.errors.length ? ` (Fehler: ${stats.errors.join(" | ").slice(0, 200)})` : ""}`, accountId);
   return NextResponse.json({ ok: true, stats });
 }

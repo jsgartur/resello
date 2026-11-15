@@ -91,35 +91,36 @@
       try {
         const d = await api("GET", `/api/v2/conversations/${c.id}`);
         out.push({ ...(d?.conversation ?? d), unread: c.unread });
-      } catch { /* einzelne Konversation überspringen */ }
+      } catch (e) { if (!out.length && c === list[list.length - 1]) throw e; }
       await jitter(600, 1500);
     }
     return out;
   }
 
   async function soldOrders() {
-    try {
-      const r = await api("GET", "/api/v2/my_orders?type=sold&status=all&per_page=50&page=1");
-      return r?.my_orders ?? r?.orders ?? [];
-    } catch { return []; }
+    const r = await api("GET", "/api/v2/my_orders?type=sold&status=all&per_page=50&page=1");
+    return r?.my_orders ?? r?.orders ?? [];
   }
 
   async function notifications() {
-    try {
-      const r = await api("GET", "/api/v2/notifications?page=1&per_page=40");
-      return r?.notifications ?? [];
-    } catch { return []; }
+    const r = await api("GET", "/api/v2/notifications?page=1&per_page=40");
+    return r?.notifications ?? [];
   }
 
   async function syncAll() {
     const me = await getMe();
-    const w = await wardrobe(me.id);
+    const errors = [];
+    const step = async (name, fn, fallback) => {
+      try { return await fn(); }
+      catch (e) { errors.push(`${name}: ${e.message || e}`); return fallback; }
+    };
+    const w = await step("Artikel", () => wardrobe(me.id), { items: [], complete: false });
     await jitter();
-    const conversations = await inbox();
+    const conversations = await step("Nachrichten", () => inbox(), []);
     await jitter();
-    const orders = await soldOrders();
-    const notifs = await notifications();
-    return { me, items: w.items, items_complete: w.complete, conversations, orders, notifications: notifs };
+    const orders = await step("Verkäufe", () => soldOrders(), []);
+    const notifs = await step("Benachrichtigungen", () => notifications(), []);
+    return { me, items: w.items, items_complete: w.complete, conversations, orders, notifications: notifs, errors };
   }
 
   // ---------- Aktionen ----------
