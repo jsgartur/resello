@@ -20,6 +20,9 @@ export default async function Listings({ searchParams }: { searchParams: Promise
   const d = read();
   const staleBefore = new Date(Date.now() - 14 * 86400000).toISOString();
   const openJobs = d.jobs.filter((j) => (j.status === "queued" || j.status === "running") && j.payload.listing_id);
+  const dayAgo = new Date(Date.now() - 86400000).toISOString();
+  const recentJobs = d.jobs.filter((j) => (j.status === "done" || j.status === "failed") && j.payload.listing_id && (j.finished_at ?? "") >= dayAgo);
+  const retrying = (j: { attempts: number; error: string | null; status: string }) => j.status === "queued" && j.attempts > 0 && j.error;
   const listings = d.listings
     .filter((l) => (f === "all" ? l.status !== "deleted" : f === "sold" ? l.status === "sold" : l.status === "active"))
     .filter((l) => f !== "stale" || (l.listed_at ?? "") < staleBefore)
@@ -56,6 +59,7 @@ export default async function Listings({ searchParams }: { searchParams: Promise
         <div className="space-y-2">
           {listings.map((l) => {
             const jobs = openJobs.filter((j) => j.payload.listing_id === l.id);
+            const recent = recentJobs.filter((j) => j.payload.listing_id === l.id).slice(-2);
             const atMin = l.min_price != null && l.price <= l.min_price;
             return (
               <div key={l.id} className="card flex flex-wrap items-center gap-4 p-3">
@@ -70,12 +74,21 @@ export default async function Listings({ searchParams }: { searchParams: Promise
                     <span className="flex items-center gap-1"><Clock size={12} />online seit {relDays(l.last_relisted_at ?? l.listed_at).replace("vor ", "")}</span>
                     {l.status !== "active" && <span className="badge">{l.status === "sold" ? "verkauft" : l.status}</span>}
                   </div>
+                  <div className="flex flex-wrap gap-2">
                   {jobs.map((j) => (
-                    <div key={j.id} className="mt-2 inline-flex items-center gap-2 rounded-full border border-accent/40 bg-accent/10 px-2.5 py-0.5 text-xs text-accent">
-                      {j.status === "running" ? "Wird ausgeführt…" : JOB_TEXT[j.type] ?? j.type}{j.type === "price_change" ? ` (${eur(j.payload.price)})` : ""}
+                    <div key={j.id} className={`mt-2 inline-flex items-center gap-2 rounded-full border px-2.5 py-0.5 text-xs ${retrying(j) ? "border-amber-900 bg-amber-950/30 text-amber-300" : "border-accent/40 bg-accent/10 text-accent"}`} title={j.error ?? ""}>
+                      {j.status === "running" ? "⏳ Wird gerade ausgeführt…" : retrying(j) ? `⚠ Fehlgeschlagen, neuer Versuch (${j.attempts}/3)` : `🕓 ${JOB_TEXT[j.type] ?? j.type} – wartet auf Chrome`}{j.type === "price_change" ? ` (${eur(j.payload.price)})` : ""}
                       {j.status === "queued" && <form action={cancelJob.bind(null, j.id)}><button title="Abbrechen"><X size={12} /></button></form>}
                     </div>
                   ))}
+                  {recent.map((j) => (
+                    <div key={j.id} title={j.error ?? ""} className={`mt-2 inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs ${j.status === "done" ? "border-emerald-900 bg-emerald-950/30 text-emerald-300" : "border-red-900 bg-red-950/30 text-red-300"}`}>
+                      {j.status === "done"
+                        ? `✓ ${j.type === "relist" ? "Neu eingestellt" : `Preis geändert auf ${eur(j.payload.price)}`} · ${new Intl.DateTimeFormat("de-DE", { hour: "2-digit", minute: "2-digit" }).format(new Date(j.finished_at!))}`
+                        : `✗ ${j.type === "relist" ? "Relist" : "Preisänderung"} fehlgeschlagen: ${(j.error ?? "").slice(0, 80)}`}
+                    </div>
+                  ))}
+                  </div>
                 </div>
 
                 <div className="w-24 text-right">

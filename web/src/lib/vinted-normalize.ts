@@ -68,7 +68,7 @@ export function normalizeItem(raw: Raw, accountId: string) {
     status,
     views: Number(pick(raw, "view_count") ?? 0),
     favourites: Number(pick(raw, "favourite_count") ?? 0),
-    listed_at: ts(pick(raw, "created_at_ts", "photo.high_resolution.timestamp", "created_at", "last_push_up_at")),
+    listed_at: findDate(raw, ["created_at_ts", "photo.high_resolution.timestamp", "photos.0.high_resolution.timestamp", "created_at", "last_push_up_at", "updated_at_ts"]),
     raw,
     updated_at: new Date().toISOString(),
   };
