@@ -14,6 +14,7 @@ WORKDIR /app
 ENV NODE_ENV=production PORT=3010 HOSTNAME=0.0.0.0 DATA_DIR=/data
 COPY --from=build /app/.next/standalone ./
 COPY --from=build /app/.next/static ./.next/static
+COPY --from=build /app/public ./public
 RUN mkdir -p /data && chown -R node:node /data /app
 USER node
 EXPOSE 3010

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isValidSession, SESSION_COOKIE } from "@/lib/session";
 
 // Öffentlich: Login und Erweiterungs-/Worker-API (eigener Token)
-const PUBLIC = ["/login", "/api/login", "/api/ext"];
+const PUBLIC = ["/login", "/api/login", "/api/ext", "/manifest.webmanifest", "/sw.js", "/icon-", "/apple-icon", "/favicon"];
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
