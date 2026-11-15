@@ -63,15 +63,9 @@ export async function POST(req: NextRequest) {
       s.orders++;
     }
 
-    // Fallback: als verkauft markierte Artikel ohne Bestellung trotzdem als Verkauf zählen
-    for (const l of d.listings) {
-      if (l.account_id !== accountId || l.status !== "sold") continue;
-      if (d.orders.some((o) => o.account_id === accountId && (o.listing_id === l.id || o.title === l.title))) continue;
-      d.orders.push({
-        id: id(), account_id: accountId, vinted_transaction_id: -l.vinted_item_id, listing_id: l.id, title: l.title,
-        buyer: null, country: null, price: l.price, shipping_fee: null, status: "sold", sold_at: l.updated_at, raw: null,
-      });
-      s.orders++;
+    // Alte Ersatz-Einträge (aus früherer Version) entfernen, sobald echte Bestellungen da sind
+    if (d.orders.some((o) => o.account_id === accountId && o.vinted_transaction_id > 0)) {
+      d.orders = d.orders.filter((o) => !(o.account_id === accountId && o.vinted_transaction_id < 0));
     }
 
     // Favoriten

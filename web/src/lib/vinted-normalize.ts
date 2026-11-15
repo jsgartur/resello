@@ -23,10 +23,28 @@ export function money(v: any): number | null {
 }
 
 function ts(v: any): string | null {
-  if (v == null) return null;
-  if (typeof v === "number") return new Date(v < 1e12 ? v * 1000 : v).toISOString();
-  const d = new Date(v);
-  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+  if (v == null || v === "") return null;
+  if (typeof v === "number") return v > 1e8 ? new Date(v < 1e12 ? v * 1000 : v).toISOString() : null;
+  const str = String(v).trim();
+  if (/^\d{9,13}$/.test(str)) return ts(Number(str));
+  const de = str.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})/); // 15.10.2026
+  if (de) return new Date(Date.UTC(+de[3], +de[2] - 1, +de[1], 12)).toISOString();
+  const d = new Date(str);
+  return Number.isNaN(d.getTime()) || d.getFullYear() < 2008 ? null : d.toISOString();
+}
+
+/** Sucht in einem Objekt (bis 2 Ebenen tief) nach dem ersten brauchbaren Datum. */
+function findDate(raw: Raw, preferred: string[]): string | null {
+  for (const k of preferred) { const v = ts(pick(raw, k)); if (v) return v; }
+  const scan = (o: Raw, depth: number): string | null => {
+    if (!o || typeof o !== "object" || depth > 2) return null;
+    for (const [k, val] of Object.entries(o)) {
+      if (/(date|_at$|_ts$|time)/i.test(k) && (typeof val === "string" || typeof val === "number")) { const v = ts(val); if (v) return v; }
+    }
+    for (const val of Object.values(o)) { if (val && typeof val === "object" && !Array.isArray(val)) { const v = scan(val, depth + 1); if (v) return v; } }
+    return null;
+  };
+  return scan(raw, 0);
 }
 
 export function normalizeItem(raw: Raw, accountId: string) {
@@ -65,17 +83,25 @@ export function normalizeConversation(raw: Raw, myUserId: number | null) {
     const e = m.entity ?? m;
     const userId = pick(e, "user_id", "sender_id");
     const offer = m.entity_type?.includes("offer") ? money(pick(e, "price", "offer_price", "price_label")) : null;
+    const text = String(pick(e, "body", "title", "subtitle") ?? "");
+    const offerStatus = String(pick(e, "status", "status_title", "state") ?? "").toLowerCase();
+    const system = /status|action|system|notice/i.test(String(m.entity_type ?? "")) ||
+      /angenommen|abgelehnt|zurückgezogen|accepted|declined|rejected|withdrawn|bezahlt|versandt|verschickt/i.test(text) ||
+      (!!offer && !!offerStatus && !/pending|active|offered|^$/.test(offerStatus));
     return {
+      system,
       vinted_message_id: pick(m, "id", "entity.id") ?? null,
       direction: myUserId && Number(userId) === Number(myUserId) ? "out" : userId ? "in" : "out",
       body: String(pick(e, "body", "title", "subtitle") ?? (offer ? `Angebot ${offer} €` : "")),
       offer_price: offer,
-      sent_at: ts(pick(m, "created_at_ts", "created_time_ago", "entity.created_at_ts", "created_at")),
-    } as NormalizedMessage;
+      sent_at: ts(pick(m, "created_at_ts", "entity.created_at_ts", "created_at")),
+    } as NormalizedMessage & { system: boolean };
   }).filter((m: NormalizedMessage) => m.body || m.offer_price);
 
-  const last = msgs[msgs.length - 1];
-  const needs_action: "offer" | "reply" | null = last && last.direction === "in" ? (last.offer_price ? "offer" : "reply") : null;
+  const last = msgs[msgs.length - 1] as (NormalizedMessage & { system?: boolean }) | undefined;
+  // Systemmeldungen ("Angebot angenommen" usw.) oder erledigte Angebote → keine Aktion nötig
+  const needs_action: "offer" | "reply" | null =
+    last && last.direction === "in" && !last.system ? (last.offer_price ? "offer" : "reply") : null;
   return {
     conversation: {
       vinted_conversation_id: Number(raw.id),
@@ -88,7 +114,7 @@ export function normalizeConversation(raw: Raw, myUserId: number | null) {
       raw: { ...raw, messages: undefined },
     },
     itemId: itemId ? Number(itemId) : null,
-    messages: msgs,
+    messages: msgs.map(({ system: _s, ...m }: NormalizedMessage & { system?: boolean }) => m as NormalizedMessage),
   };
 }
 
@@ -102,7 +128,7 @@ export function normalizeOrder(raw: Raw, accountId: string) {
     price: money(pick(raw, "price", "total_amount", "item_price")),
     shipping_fee: money(pick(raw, "shipping_price", "shipment_price")),
     status: pick(raw, "status", "transaction_user_status") ?? null,
-    sold_at: ts(pick(raw, "date", "created_at", "updated_at")),
+    sold_at: findDate(raw, ["date", "created_at_ts", "transaction_date", "created_at", "status_updated_at", "updated_at_ts", "updated_at"]),
     itemId: pick(raw, "item_id", "item.id") ? Number(pick(raw, "item_id", "item.id")) : null,
     raw,
   };

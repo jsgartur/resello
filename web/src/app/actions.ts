@@ -189,3 +189,20 @@ export async function toggleRule(type: RuleType) {
   });
   revalidatePath("/automationen");
 }
+
+export async function queuePriceDrop(listingId: string, percent: number) {
+  const l = read().listings.find((x) => x.id === listingId);
+  if (!l) return;
+  const target = Math.round(l.price * (1 - percent / 100) * 100) / 100;
+  const price = l.min_price != null ? Math.max(l.min_price, target) : target;
+  if (price >= l.price) return; // Mindestpreis erreicht
+  write((d) => queueJob(d, l.account_id, "price_change", { listing_id: l.id, vinted_item_id: l.vinted_item_id, price }));
+  log("job", `Preissenkung −${percent} % (${price} €) geplant: ${l.title}`, l.account_id);
+  revalidatePath("/angebote");
+}
+
+export async function cancelJob(jobId: string) {
+  write((d) => { const j = d.jobs.find((x) => x.id === jobId); if (j && j.status === "queued") j.status = "cancelled"; });
+  revalidatePath("/angebote");
+  revalidatePath("/automationen");
+}

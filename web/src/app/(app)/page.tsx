@@ -19,6 +19,7 @@ export default function Overview() {
 
   const since = new Date(Date.now() - 30 * 86400000).toISOString();
   const list = d.orders.filter((o) => (o.sold_at ?? "") >= since);
+  const undated = d.orders.filter((o) => !o.sold_at).length;
   const revenue = list.reduce((s, o) => s + (o.price ?? 0), 0);
   const active = d.listings.filter((l) => l.status === "active").length;
   const pendingDrafts = d.drafts.filter((x) => x.status === "pending").length;
@@ -33,7 +34,7 @@ export default function Overview() {
 
   return (
     <>
-      <PageHeader title="Übersicht" sub={`Dein Geschäft der letzten 30 Tage · insgesamt ${d.orders.length} Verkäufe (${eur(d.orders.reduce((s, o) => s + (o.price ?? 0), 0))})`} />
+      <PageHeader title="Übersicht" sub={`Dein Geschäft der letzten 30 Tage · insgesamt ${d.orders.length} Verkäufe (${eur(d.orders.reduce((s, o) => s + (o.price ?? 0), 0))})${undated ? ` · ${undated} ohne Datum – bitte einmal synchronisieren` : ""}`} />
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Stat label="Umsatz" value={eur(revenue)} />
         <Stat label="Bestellungen" value={String(list.length)} />
@@ -58,7 +59,7 @@ export default function Overview() {
               <div className="flex justify-between text-sm"><span>{c}</span><span>{eur(v)}</span></div>
               <div className="mt-1 h-1.5 rounded bg-panel-2"><div className="h-1.5 rounded bg-accent" style={{ width: `${(v / revenue) * 100}%` }} /></div>
             </div>
-          )) : <p className="text-sm text-muted">Noch keine Verkäufe synchronisiert.</p>}
+          )) : <p className="text-sm text-muted">{list.length ? "Vinted liefert zu deinen Verkäufen kein Käuferland." : "Keine Verkäufe in den letzten 30 Tagen."}</p>}
         </div>
       </div>
 
@@ -70,7 +71,7 @@ export default function Overview() {
           </div>
           {actionConvs.length ? actionConvs.map((c) => (
             <Link key={c.id} href={`/postfach?c=${c.id}`} className="block border-t border-line py-2 first:border-0">
-              <div className="flex justify-between text-sm"><span className="font-medium">{c.other_user}</span><span className="badge">{c.needs_action}</span></div>
+              <div className="flex justify-between text-sm"><span className="font-medium">{c.other_user}</span><span className="badge border-accent/40 text-accent">{c.needs_action === "offer" ? "Angebot" : "Antwort nötig"}</span></div>
               <div className="truncate text-sm text-muted">{c.last_message}</div>
             </Link>
           )) : <p className="text-sm text-muted">Alles erledigt.</p>}
