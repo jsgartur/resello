@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
   if (!(file instanceof File) || !file.size) return NextResponse.json({ error: "Kein Bild" }, { status: 400 });
   const path = saveImage(`models/${Date.now()}-${file.name.replace(/[^a-z0-9.]/gi, "_")}`, Buffer.from(await file.arrayBuffer()));
   const gender = (["m", "w", "x"].includes(String(form.get("gender"))) ? String(form.get("gender")) : "x") as "m" | "w" | "x";
-  const model = { id: id(), name: String(form.get("name") || file.name), gender, path, created_at: now() };
+  const model = { id: id(), name: String(form.get("name") || file.name), gender, path, created_at: now(), source: "upload" as const };
   write((d) => d.studio_models.push(model));
   return NextResponse.json({ model: { ...model, url: imageUrl(path) } });
 }

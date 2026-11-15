@@ -1,17 +1,18 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 import { useEffect, useRef, useState } from "react";
-import { Shirt, Eraser, LayoutGrid, Wand2, PenLine, Upload, X, Download, Loader2 } from "lucide-react";
+import { Upload, X, Download, Loader2, Check, Sparkles } from "lucide-react";
+import { ToolArt } from "@/components/ToolArt";
 
 type Tool = "tryon" | "background" | "flatlay" | "enhance" | "custom";
-type Model = { id: string; name: string; gender: string; url: string };
+type Model = { id: string; name: string; gender: string; url: string; source?: string };
 
-const TOOLS: { id: Tool; title: string; desc: string; icon: React.ElementType }[] = [
-  { id: "tryon", title: "Try-on", desc: "Kleidung aufs Model", icon: Shirt },
-  { id: "background", title: "Hintergrund", desc: "Freistellen & neuer Hintergrund", icon: Eraser },
-  { id: "flatlay", title: "Flatlay", desc: "Artikel von oben in Szene setzen", icon: LayoutGrid },
-  { id: "enhance", title: "Aufbessern & Bügeln", desc: "Schärfer, glatter, bessere Farben", icon: Wand2 },
-  { id: "custom", title: "Eigener Prompt", desc: "Freie Anweisung an die KI", icon: PenLine },
+const TOOLS: { id: Tool; title: string; desc: string; badge: string }[] = [
+  { id: "tryon", title: "Marketplace Try-on", desc: "Kleidung aufs Model.", badge: "Auto" },
+  { id: "custom", title: "Custom", desc: "Eigener Prompt.", badge: "Prompt" },
+  { id: "flatlay", title: "Flatlay", desc: "Artikel von oben in Szene setzen.", badge: "Szene" },
+  { id: "background", title: "Hintergrund", desc: "Freistellen & neuer Hintergrund.", badge: "Freisteller" },
+  { id: "enhance", title: "Aufbessern & Bügeln", desc: "Schärfer, glatter, bessere Farben.", badge: "Upscale" },
 ];
 
 export function Studio() {
@@ -20,7 +21,9 @@ export function Studio() {
   const [garments, setGarments] = useState<File[]>([]);
   const [models, setModels] = useState<Model[]>([]);
   const [modelId, setModelId] = useState<string | null>(null);
-  const [gender, setGender] = useState<"all" | "m" | "w">("all");
+  const [gender, setGender] = useState<"own" | "all" | "m" | "w">("all");
+  const [genBusy, setGenBusy] = useState<{ done: number; total: number } | null>(null);
+  const [genError, setGenError] = useState<string | null>(null);
   const [opts, setOpts] = useState({ topFit: "original", pantsFit: "original", background: "white", flatlayStyle: "minimal", custom: "" });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,10 +46,27 @@ export function Studio() {
     const fd = new FormData();
     fd.append("file", file);
     fd.append("name", file.name.replace(/\.[^.]+$/, ""));
-    fd.append("gender", gender === "all" ? "x" : gender);
+    fd.append("gender", gender === "m" || gender === "w" ? gender : "x");
     const r = await fetch("/api/studio/models", { method: "POST", body: fd });
     const d = await r.json();
     if (d.model) { setModels((m) => [d.model, ...m]); setModelId(d.model.id); }
+  }
+
+  async function fillGallery(g: "m" | "w", count: number) {
+    setGenError(null);
+    setGenBusy({ done: 0, total: count });
+    for (let i = 0; i < count; i++) {
+      try {
+        const r = await fetch("/api/studio/models/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ gender: g }) });
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error || "Fehler");
+        setModels((m) => [d.model, ...m]);
+      } catch (e) {
+        setGenError(e instanceof Error ? e.message : "Fehler"); break;
+      }
+      setGenBusy({ done: i + 1, total: count });
+    }
+    setGenBusy(null);
   }
 
   async function generate() {
@@ -92,13 +112,19 @@ export function Studio() {
 
       {/* 1: Tool */}
       {step === 1 && (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {TOOLS.map((t) => (
             <button key={t.id} onClick={() => { setTool(t.id); setStep(2); setResult(null); }}
-              className={`card p-6 text-left transition hover:border-accent ${tool === t.id ? "border-accent" : ""}`}>
-              <t.icon className="mb-4 text-accent" size={28} />
-              <div className="font-medium">{t.title}</div>
-              <div className="text-sm text-muted">{t.desc}</div>
+              className={`card group overflow-hidden p-2 text-left transition hover:border-accent/60 ${tool === t.id ? "border-accent/70" : ""}`}>
+              <div className="aspect-[16/9] overflow-hidden rounded-lg bg-panel-2/60 transition group-hover:bg-panel-2"><ToolArt tool={t.id} /></div>
+              <div className="flex items-center justify-between px-2 pt-3">
+                <span className="badge">{t.badge}</span>
+                {tool === t.id && <span className="grid h-5 w-5 place-items-center rounded bg-white text-black"><Check size={13} /></span>}
+              </div>
+              <div className="px-2 pb-2 pt-2">
+                <div className="font-medium">{t.title}</div>
+                <div className="text-sm text-muted">{t.desc}</div>
+              </div>
             </button>
           ))}
         </div>
@@ -151,28 +177,50 @@ export function Studio() {
       {step === 3 && tool === "tryon" && (
         <div className="grid gap-4 lg:grid-cols-[1fr_300px]">
           <div className="card p-5">
-            <div className="mb-3 flex gap-2">
-              {(["all", "m", "w"] as const).map((g) => (
-                <button key={g} onClick={() => setGender(g)} className={gender === g ? "btn-primary" : "btn-ghost"}>{{ all: "Alle", m: "Männer", w: "Frauen" }[g]}</button>
-              ))}
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div className="text-lg font-semibold">Model auswählen</div>
             </div>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
-              <button onClick={() => setModelId(null)} className={`grid aspect-[3/4] place-items-center rounded-lg border p-3 text-center text-sm ${modelId === null ? "border-accent" : "border-line"}`}>
-                KI erzeugt passendes Model
-              </button>
-              {models.filter((m) => gender === "all" || m.gender === gender).map((m) => (
-                <button key={m.id} onClick={() => setModelId(m.id)} className={`overflow-hidden rounded-lg border ${modelId === m.id ? "border-accent ring-2 ring-accent" : "border-line"}`}>
-                  <img src={m.url} alt={m.name} className="aspect-[3/4] w-full object-cover" />
-                  <div className="truncate p-1.5 text-left text-xs">{m.name}</div>
+            <div className="mb-4 flex flex-wrap gap-2">
+              {(["own", "all", "m", "w"] as const).map((g) => (
+                <button key={g} onClick={() => setGender(g)} className={`rounded-full border px-4 py-1.5 text-sm ${gender === g ? "border-white/40 bg-panel-2 text-white" : "border-line text-muted hover:text-white"}`}>
+                  {{ own: "Eigene Galerie", all: "Alle", m: "Männer", w: "Frauen" }[g]}
                 </button>
               ))}
             </div>
+            <div className="grid max-h-[60vh] grid-cols-2 gap-3 overflow-y-auto pr-1 sm:grid-cols-3 xl:grid-cols-5">
+              <button onClick={() => setModelId(null)} className={`flex aspect-[3/4] flex-col items-center justify-center gap-2 rounded-xl border p-3 text-center text-sm ${modelId === null ? "border-accent ring-1 ring-accent" : "border-line text-muted"}`}>
+                <Sparkles size={20} className="text-accent" />KI wählt ein passendes Model
+              </button>
+              {models
+                .filter((m) => gender === "all" ? true : gender === "own" ? m.source !== "ki" : m.gender === gender)
+                .map((m) => (
+                  <button key={m.id} onClick={() => setModelId(m.id)} className={`overflow-hidden rounded-xl border bg-panel-2/40 p-1.5 text-left ${modelId === m.id ? "border-accent ring-1 ring-accent" : "border-line hover:border-white/30"}`}>
+                    <img src={m.url} alt={m.name} className="aspect-[3/4] w-full rounded-lg object-cover" />
+                    <div className="truncate px-1 pt-1.5 text-xs font-medium">{m.name}</div>
+                    <div className="px-1 pb-1 text-[11px] text-muted">{m.gender === "m" ? "Männer" : m.gender === "w" ? "Frauen" : "Eigenes Foto"}</div>
+                  </button>
+                ))}
+            </div>
+            {!models.length && <p className="mt-4 text-sm text-muted">Noch keine Models. Lass rechts die KI deine Galerie füllen oder lade eigene Fotos hoch.</p>}
           </div>
-          <div className="card space-y-3 p-5 text-sm">
-            <div className="font-medium">Eigenes Model hochladen</div>
-            <p className="text-muted">Am besten: ganze Person sichtbar, gleichmäßiges Licht, schlichte Kleidung. Nur Fotos von dir oder Personen, die zugestimmt haben.</p>
-            <button onClick={() => modelInput.current?.click()} className="btn-ghost w-full"><Upload size={16} />Foto auswählen</button>
-            <input ref={modelInput} type="file" accept="image/*" hidden onChange={(e) => e.target.files?.[0] && uploadModel(e.target.files[0])} />
+
+          <div className="space-y-4">
+            <div className="card space-y-3 p-5 text-sm">
+              <div className="font-medium">Galerie mit KI füllen</div>
+              <p className="text-muted">Erstellt erfundene Personen im Fitpic-Stil (Gesicht nicht im Bild). Einmal anlegen, dann immer wieder nutzen.</p>
+              <div className="grid grid-cols-2 gap-2">
+                <button disabled={!!genBusy} onClick={() => fillGallery("m", 6)} className="btn-ghost">+6 Männer</button>
+                <button disabled={!!genBusy} onClick={() => fillGallery("w", 6)} className="btn-ghost">+6 Frauen</button>
+              </div>
+              {genBusy && <div className="flex items-center gap-2 text-muted"><Loader2 size={14} className="animate-spin text-accent" />Erstelle {genBusy.done + 1} von {genBusy.total} …</div>}
+              {genError && <div className="text-red-400">{genError}</div>}
+            </div>
+            <div className="card space-y-3 p-5 text-sm">
+              <div className="font-medium">Eigenes Model hochladen</div>
+              <p className="text-muted">Ganze Person sichtbar, gleichmäßiges Licht, schlichte Kleidung. Nur Fotos von dir oder Personen, die zugestimmt haben.</p>
+              <button onClick={() => modelInput.current?.click()} className="btn-ghost w-full"><Upload size={16} />Foto auswählen</button>
+              <input ref={modelInput} type="file" accept="image/*" hidden onChange={(e) => e.target.files?.[0] && uploadModel(e.target.files[0])} />
+            </div>
           </div>
           <div className="flex justify-between lg:col-span-2">
             <button onClick={() => setStep(2)} className="btn-ghost">Zurück</button>

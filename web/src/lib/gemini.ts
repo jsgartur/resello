@@ -99,3 +99,20 @@ export async function generateText(prompt: string, system?: string) {
   });
   return (res.text ?? "").trim();
 }
+
+/** Erzeugt ein erfundenes Model-Foto (Fitpic-Stil) für die Try-on-Galerie. */
+export async function generateModelImage(gender: "m" | "w", variant: number) {
+  const looks = gender === "m"
+    ? ["slim young man, plain white t-shirt and plain grey sweatpants", "athletic man, plain black t-shirt and dark straight jeans", "young man, plain grey hoodie and light baggy jeans", "tall man, plain navy t-shirt and beige chinos", "young man, plain white tank top and black cargo pants", "man with curly hair, plain olive t-shirt and blue jeans"]
+    : ["slim young woman, plain white fitted t-shirt and light straight jeans", "young woman, plain black top and dark wide-leg jeans", "woman, plain grey crop hoodie and beige sweatpants", "tall woman, plain beige t-shirt and blue mom jeans", "young woman, plain white tank top and black trousers", "woman with long hair, plain olive top and light baggy jeans"];
+  const scenes = ["mirror selfie in a bright minimal bedroom", "standing in front of a white wall", "on a quiet city sidewalk, daylight", "in a hallway with wooden floor", "in front of a clothing rack, soft daylight", "outdoors next to a parked car, overcast light"];
+  const prompt = `Photorealistic casual secondhand-marketplace "fit pic" of a fictional ${looks[variant % looks.length]}, ${scenes[Math.floor(variant / looks.length) % scenes.length]}. Full body from neck to shoes visible, face out of frame or hidden by the phone. Neutral standing pose, arms slightly away from the body so clothing is clearly visible. Natural smartphone photo look, sharp focus, portrait format 3:4. Plain clothes without logos or text. Not a real person.`;
+  const res = await client().models.generateContent({
+    model: process.env.GEMINI_IMAGE_MODEL || "gemini-2.5-flash-image",
+    contents: prompt,
+    config: { responseModalities: ["IMAGE", "TEXT"] },
+  });
+  const part = (res.candidates?.[0]?.content?.parts ?? []).find((p) => p.inlineData?.data);
+  if (!part?.inlineData?.data) throw new Error("Gemini hat kein Bild geliefert");
+  return { data: Buffer.from(part.inlineData.data, "base64"), mimeType: part.inlineData.mimeType || "image/png" };
+}

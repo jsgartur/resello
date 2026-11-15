@@ -23,7 +23,7 @@ export type Listing = {
 };
 export type Conversation = {
   id: string; account_id: string; vinted_conversation_id: number; other_user: string; listing_id: string | null;
-  last_message: string | null; last_message_at: string | null; unread: boolean; needs_action: "reply" | "offer" | null; raw?: unknown;
+  last_message: string | null; last_message_at: string | null; unread: boolean; needs_action: "reply" | "offer" | null; avatar_url?: string | null; raw?: unknown;
 };
 export type Message = {
   id: string; conversation_id: string; vinted_message_id: number | null; direction: "in" | "out";
@@ -42,7 +42,7 @@ export type Order = {
 export type FavouriteEvent = { id: string; account_id: string; vinted_item_id: number; user_id: number; user_login: string | null; handled: boolean; created_at: string };
 export type Expense = { id: string; label: string; amount: number; spent_at: string };
 export type RuleType = "relist" | "price_drop" | "auto_counter" | "ai_replies" | "favourite_followup";
-export type Rule = { id: string; type: RuleType; enabled: boolean; config: Record<string, string | number> };
+export type Rule = { id: string; type: RuleType; enabled: boolean; config: Record<string, string | number>; last_run_at?: string | null; last_result?: string | null };
 export type JobType = "sync" | "relist" | "price_change" | "send_message" | "delete_item";
 export type Job = {
   id: string; account_id: string; type: JobType; payload: Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -50,7 +50,7 @@ export type Job = {
   run_after: string; created_at: string; started_at: string | null; finished_at: string | null;
 };
 export type StudioImage = { id: string; tool: string; prompt: string; input_paths: string[]; output_path: string; created_at: string };
-export type StudioModel = { id: string; name: string; gender: "m" | "w" | "x"; path: string; created_at: string };
+export type StudioModel = { id: string; name: string; gender: "m" | "w" | "x"; path: string; created_at: string; source?: "upload" | "ki" };
 export type Activity = { id: string; account_id: string | null; kind: string; message: string; created_at: string };
 
 export type Data = {

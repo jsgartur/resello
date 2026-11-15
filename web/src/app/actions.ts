@@ -180,3 +180,12 @@ export async function prepareExtensionConnection(domain: string) {
   revalidatePath("/konten");
   return { token, accountId, domain };
 }
+
+export async function toggleRule(type: RuleType) {
+  write((d) => {
+    const r = d.rules.find((x) => x.type === type);
+    if (r) r.enabled = !r.enabled;
+    else d.rules.push({ id: id(), type, enabled: true, config: {} });
+  });
+  revalidatePath("/automationen");
+}

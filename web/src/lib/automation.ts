@@ -34,6 +34,7 @@ export async function runAutomations() {
 
   for (const rule of rules) {
     const c = rule.config;
+    const before = { ...summary };
 
     // ---- Automatisches Neueinstellen ----
     if (rule.type === "relist" && inWindow(c.window_start, c.window_end)) {
@@ -132,6 +133,8 @@ export async function runAutomations() {
         }
       });
     }
+    const diff = Object.entries(summary).map(([k, v]) => [k, v - (before[k] ?? 0)] as const).filter(([, v]) => v > 0);
+    write((d) => { const r = d.rules.find((x) => x.id === rule.id); if (r) { r.last_run_at = now(); r.last_result = diff.length ? diff.map(([k, v]) => `${v}× ${k}`).join(", ") : "nichts zu tun"; } });
   }
 
   const text = Object.entries(summary).map(([k, v]) => `${k}: ${v}`).join(", ");

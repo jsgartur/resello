@@ -84,6 +84,7 @@ export function normalizeConversation(raw: Raw, myUserId: number | null) {
       last_message_at: last?.sent_at ?? ts(pick(raw, "updated_at")),
       unread: !!pick(raw, "unread", "is_unread"),
       needs_action,
+      avatar_url: (pick(raw, "opposite_user.photo.thumbnails.1.url", "opposite_user.photo.url", "opposite_user.photo.thumbnails.0.url") as string | undefined) ?? null,
       raw: { ...raw, messages: undefined },
     },
     itemId: itemId ? Number(itemId) : null,
