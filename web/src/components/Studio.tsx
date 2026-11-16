@@ -100,10 +100,10 @@ export function Studio() {
   return (
     <div>
       {/* Schrittanzeige */}
-      <div className="mb-6 flex gap-6 border-b border-line">
+      <div className="mb-6 flex gap-5 overflow-x-auto border-b border-line">
         {steps.map((s, i) => (
           <button key={s} onClick={() => i + 1 < step && setStep(i + 1)}
-            className={`-mb-px flex items-center gap-2 border-b-2 pb-3 text-sm ${step === i + 1 ? "border-accent text-white" : "border-transparent text-muted"}`}>
+            className={`-mb-px flex shrink-0 items-center gap-2 whitespace-nowrap border-b-2 pb-3 text-sm ${step === i + 1 ? "border-accent text-white" : "border-transparent text-muted"}`}>
             <span className={`grid h-5 w-5 place-items-center rounded-full text-[11px] ${step > i + 1 ? "bg-emerald-600" : step === i + 1 ? "bg-accent text-black" : "bg-panel-2"}`}>{step > i + 1 ? "✓" : i + 1}</span>
             {s}
           </button>

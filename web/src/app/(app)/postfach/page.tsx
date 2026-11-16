@@ -62,9 +62,9 @@ export default async function Inbox({ searchParams }: { searchParams: Promise<{ 
       {!all.length ? (
         <Empty title="Noch keine Nachrichten">Nach der ersten Synchronisierung erscheinen hier alle Käufernachrichten.</Empty>
       ) : (
-        <div className="card grid h-[calc(100vh-220px)] min-h-[520px] overflow-hidden lg:grid-cols-[360px_1fr]">
+        <div className="card grid h-[calc(100dvh-230px)] min-h-[460px] grid-cols-[minmax(0,1fr)] overflow-hidden lg:h-[calc(100vh-220px)] lg:min-h-[520px] lg:grid-cols-[360px_minmax(0,1fr)]">
           {/* Liste */}
-          <div className="flex min-h-0 flex-col border-r border-line">
+          <div className={`${conv ? "hidden lg:flex" : "flex"} min-h-0 flex-col border-line lg:border-r`}>
             <div className="space-y-3 border-b border-line p-3">
               <form className="relative">
                 {f !== "alle" && <input type="hidden" name="f" value={f} />}
@@ -116,7 +116,7 @@ export default async function Inbox({ searchParams }: { searchParams: Promise<{ 
 
           {/* Rechte Seite */}
           {!conv ? (
-            <div className="flex min-h-0 flex-col items-center justify-center overflow-y-auto p-8">
+            <div className="hidden min-h-0 flex-col items-center justify-center overflow-y-auto p-8 lg:flex">
               <div className="w-full max-w-md">
                 <h2 className="text-xl font-semibold">Mit dem Wichtigsten starten</h2>
                 <p className="mt-1 text-sm text-muted">{all.length} Gespräche{next ? <> · höchste Priorität: <b className="text-white">{next.other_user}</b></> : ""}</p>
@@ -159,20 +159,20 @@ export default async function Inbox({ searchParams }: { searchParams: Promise<{ 
             </div>
           ) : (
             <div className="flex min-h-0 flex-col">
-              <div className="flex items-center gap-3 border-b border-line p-4">
+              <div className="flex items-center gap-3 border-b border-line p-3 lg:p-4">
                 <Avatar c={conv} size={36} />
                 <div className="min-w-0 flex-1">
                   <div className="font-medium">{conv.other_user}</div>
                   {listing && <div className="truncate text-xs text-muted">{listing.title} · {eur(listing.price)}{listing.min_price ? ` · Mindestpreis ${eur(listing.min_price)}` : ""}</div>}
                 </div>
-                {listing?.photo_url && <img src={listing.photo_url} alt="" className="h-11 w-11 rounded-lg object-cover" />}
-                <Link href={qs({})} className="btn-ghost">Schließen</Link>
+                {listing?.photo_url && <img src={listing.photo_url} alt="" className="hidden h-11 w-11 rounded-lg object-cover sm:block" />}
+                <Link href={qs({})} className="btn-ghost"><span className="lg:hidden">← Zurück</span><span className="hidden lg:inline">Schließen</span></Link>
               </div>
               <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-4">
                 {msgs.map((m) => (
                   <div key={m.id} className={`flex items-end gap-2 ${m.direction === "out" ? "justify-end" : ""}`}>
                     {m.direction === "in" && <Avatar c={conv} size={26} />}
-                    <div className={`max-w-[70%] rounded-2xl px-3.5 py-2 text-sm ${m.direction === "out" ? "rounded-br-sm bg-accent/15" : "rounded-bl-sm bg-panel-2"}`}>
+                    <div className={`max-w-[85%] lg:max-w-[70%] rounded-2xl px-3.5 py-2 text-sm ${m.direction === "out" ? "rounded-br-sm bg-accent/15" : "rounded-bl-sm bg-panel-2"}`}>
                       {m.offer_price != null && <div className="mb-1 text-xs font-semibold text-accent">Angebot: {eur(m.offer_price)}</div>}
                       <div className="whitespace-pre-wrap">{m.body}</div>
                       <div className="mt-1 text-[10px] text-muted">{dateTime(m.sent_at)}</div>

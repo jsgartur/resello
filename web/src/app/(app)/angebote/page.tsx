@@ -40,10 +40,10 @@ export default async function Listings({ searchParams }: { searchParams: Promise
           <Link key={x.key} href={`/angebote?f=${x.key}${q ? `&q=${encodeURIComponent(q)}` : ""}`}
             className={`rounded-full border px-3 py-1 text-xs ${x.key === f ? "border-accent/60 bg-accent/10 text-white" : "border-line text-muted hover:text-white"}`}>{x.label}</Link>
         ))}
-        <form className="relative ml-auto">
+        <form className="relative w-full lg:ml-auto lg:w-auto">
           <input type="hidden" name="f" value={f} />
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
-          <input name="q" defaultValue={q} placeholder="Artikel suchen…" className="input w-60 pl-9" />
+          <input name="q" defaultValue={q} placeholder="Artikel suchen…" className="input pl-9 lg:w-60" />
         </form>
       </div>
 
@@ -62,11 +62,18 @@ export default async function Listings({ searchParams }: { searchParams: Promise
             const recent = recentJobs.filter((j) => j.payload.listing_id === l.id).slice(-2);
             const atMin = l.min_price != null && l.price <= l.min_price;
             return (
-              <div key={l.id} className="card flex flex-wrap items-center gap-4 p-3">
-                {l.photo_url ? <img src={l.photo_url} alt="" className="h-20 w-16 rounded-lg object-cover" /> : <div className="h-20 w-16 rounded-lg bg-panel-2" />}
+              <div key={l.id} className="card flex flex-col gap-3 p-3 lg:flex-row lg:items-center lg:gap-4">
+                <div className="flex min-w-0 flex-1 gap-3">
+                {l.photo_url ? <img src={l.photo_url} alt="" className="h-20 w-16 shrink-0 rounded-lg object-cover" /> : <div className="h-20 w-16 shrink-0 rounded-lg bg-panel-2" />}
 
-                <div className="min-w-56 flex-1">
-                  <a href={l.url ?? "#"} target="_blank" className="font-medium hover:underline">{l.title}</a>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <a href={l.url ?? "#"} target="_blank" className="line-clamp-2 text-sm font-medium hover:underline lg:text-base">{l.title}</a>
+                    <div className="shrink-0 text-right lg:hidden">
+                      <div className="font-semibold">{eur(l.price)}</div>
+                      {l.min_price != null && <div className="text-[11px] text-muted">min. {eur(l.min_price)}</div>}
+                    </div>
+                  </div>
                   <div className="mt-0.5 text-xs text-muted">{[l.brand, l.size, l.condition].filter(Boolean).join(" · ")}</div>
                   <div className="mt-1.5 flex flex-wrap items-center gap-3 text-xs text-muted">
                     <span className="flex items-center gap-1"><Eye size={12} />{l.views}</span>
@@ -91,22 +98,24 @@ export default async function Listings({ searchParams }: { searchParams: Promise
                   </div>
                 </div>
 
-                <div className="w-24 text-right">
+                </div>
+
+                <div className="hidden w-24 text-right lg:block">
                   <div className="text-lg font-semibold">{eur(l.price)}</div>
                   {l.min_price != null && <div className="text-[11px] text-muted">min. {eur(l.min_price)}</div>}
                 </div>
 
                 {l.status === "active" && (
-                  <div className="flex flex-wrap items-center gap-2">
+                  <div className="grid grid-cols-[1fr_auto_auto] items-center gap-2 lg:flex">
                     <form action={queueRelist.bind(null, l.id)}>
-                      <button disabled={jobs.some((j) => j.type === "relist")} className="btn-primary"><Repeat size={15} />Jetzt relisten</button>
+                      <button disabled={jobs.some((j) => j.type === "relist")} className="btn-primary w-full whitespace-nowrap"><Repeat size={15} />Jetzt relisten</button>
                     </form>
                     <form action={queuePriceDrop.bind(null, l.id, 10)}>
-                      <button disabled={atMin || jobs.some((j) => j.type === "price_change")} title={atMin ? "Mindestpreis erreicht" : ""} className="btn-ghost"><TrendingDown size={15} />−10 %</button>
+                      <button disabled={atMin || jobs.some((j) => j.type === "price_change")} title={atMin ? "Mindestpreis erreicht" : ""} className="btn-ghost whitespace-nowrap"><TrendingDown size={15} />−10 %</button>
                     </form>
                     <details className="relative">
-                      <summary className="btn-ghost cursor-pointer list-none">Mehr</summary>
-                      <div className="absolute right-0 z-20 mt-2 w-72 space-y-3 rounded-xl border border-line bg-panel p-4 shadow-2xl">
+                      <summary className="btn-ghost cursor-pointer list-none whitespace-nowrap">Mehr</summary>
+                      <div className="absolute right-0 z-20 mt-2 w-[min(18rem,calc(100vw-2rem))] space-y-3 rounded-xl border border-line bg-panel p-4 shadow-2xl">
                         <form action={queuePriceChange} className="flex items-end gap-2">
                           <input type="hidden" name="id" value={l.id} />
                           <div className="flex-1"><label className="label">Neuer Preis (€)</label><input name="price" className="input" placeholder={String(l.price)} /></div>

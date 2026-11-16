@@ -5,7 +5,7 @@ import {
   LayoutDashboard, Package, Inbox, Zap, Wallet, Sparkles, Images, Users, Settings,
 } from "lucide-react";
 
-const groups = [
+export const groups = [
   { title: "Arbeitsbereich", items: [
     { href: "/", label: "Übersicht", icon: LayoutDashboard },
     { href: "/angebote", label: "Angebote", icon: Package },
@@ -26,7 +26,7 @@ const groups = [
 export function Sidebar({ pendingDrafts }: { pendingDrafts: number }) {
   const path = usePathname();
   return (
-    <aside className="sticky top-0 flex h-screen w-60 shrink-0 flex-col border-r border-line bg-panel p-3">
+    <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-line bg-panel p-3 lg:flex">
       <div className="mb-6 flex items-center gap-2 px-2 pt-1">
         <div className="grid h-8 w-8 place-items-center rounded-lg bg-accent font-bold text-black">R</div>
         <div>
