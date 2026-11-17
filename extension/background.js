@@ -55,6 +55,20 @@ async function inTab(tabId, msg) {
   return r.data;
 }
 
+// Fotos für neue Angebote vom Dashboard holen (Base64, damit sie in den Vinted-Tab übergeben werden können)
+async function loadPhotos(s, paths) {
+  const out = [];
+  for (const p of paths) {
+    const res = await fetch(s.dashboardUrl.replace(/\/$/, "") + "/api/ext/photo?path=" + encodeURIComponent(p), { headers: { Authorization: `Bearer ${s.token}` } });
+    if (!res.ok) throw new Error(`Foto vom Dashboard laden: ${res.status}`);
+    const buf = new Uint8Array(await res.arrayBuffer());
+    let bin = "";
+    for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode.apply(null, buf.subarray(i, i + 0x8000));
+    out.push({ b64: btoa(bin), type: res.headers.get("content-type") || "image/jpeg" });
+  }
+  return out;
+}
+
 async function pushSync(s, data) {
   const { me, ...rest } = data;
   const r = await dashboard(s, "/api/ext/sync", { account_id: s.accountId, ...rest });
@@ -97,6 +111,7 @@ async function tick({ forceSync = false } = {}) {
         const stats = await pushSync(s, await inTab(tab.id, { cmd: "sync" }));
         await dashboard(s, `/api/ext/jobs/${job.id}`, { status: "done", result: stats });
       } else {
+        if (job.type === "create_listing") job.payload.photo_data = await loadPhotos(s, job.payload.photo_paths || []);
         const result = await inTab(tab.id, { cmd: "job", job });
         await dashboard(s, `/api/ext/jobs/${job.id}`, { status: "done", result });
       }

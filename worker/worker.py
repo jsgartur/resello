@@ -116,6 +116,16 @@ async def login(page):
     raise RuntimeError("Kein Login innerhalb von 5 Minuten")
 
 
+def load_photos(paths: list) -> list:
+    import base64, urllib.parse
+    out = []
+    for p in paths:
+        req = urllib.request.Request(f"{DASHBOARD}/api/ext/photo?path={urllib.parse.quote(p)}", headers={"Authorization": f"Bearer {TOKEN}"})
+        with urllib.request.urlopen(req, timeout=60) as r:
+            out.append({"b64": base64.b64encode(r.read()).decode(), "type": r.headers.get("Content-Type", "image/jpeg")})
+    return out
+
+
 def push_sync(data: dict) -> dict:
     data = {k: v for k, v in data.items() if k != "me"}
     return dashboard("/api/ext/sync", {"account_id": ACCOUNT_ID, **data})["stats"]
@@ -165,6 +175,8 @@ async def main():
                             result = push_sync(await core(page, "() => globalThis.__resello.syncAll()"))
                             last_sync = time.time()
                         else:
+                            if job["type"] == "create_listing":
+                                job["payload"]["photo_data"] = load_photos(job["payload"].get("photo_paths", []))
                             result = await core(page, "job => globalThis.__resello.runJob(job)", job)
                         dashboard(f"/api/ext/jobs/{job['id']}", {"status": "done", "result": result})
                         log("  → erledigt")

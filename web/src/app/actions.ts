@@ -206,3 +206,51 @@ export async function cancelJob(jobId: string) {
   revalidatePath("/angebote");
   revalidatePath("/automationen");
 }
+
+// ---------- Neues Angebot ----------
+function readDraftForm(form: FormData) {
+  return {
+    id: String(form.get("id")),
+    title: String(form.get("title") || "").trim(),
+    description: String(form.get("description") || "").replace(/\r\n/g, "\n").trim(),
+    price: num(form.get("price")),
+    template_listing_id: String(form.get("template_listing_id") || "") || null,
+    brand: String(form.get("brand") || "").trim() || null,
+  };
+}
+
+export async function saveListingDraft(form: FormData) {
+  const f = readDraftForm(form);
+  write((d) => {
+    const dr = d.listing_drafts.find((x) => x.id === f.id);
+    if (dr) Object.assign(dr, { title: f.title, description: f.description, price: f.price, template_listing_id: f.template_listing_id, brand: f.brand, updated_at: now() });
+  });
+  revalidatePath("/neu");
+}
+
+export async function uploadListingDraft(form: FormData): Promise<{ ok: boolean; error?: string }> {
+  const f = readDraftForm(form);
+  const d0 = read();
+  const tpl = f.template_listing_id ? d0.listings.find((l) => l.id === f.template_listing_id) : null;
+  if (!tpl) return { ok: false, error: "Bitte einen Vorlage-Artikel auswählen (für Kategorie, Größe und Paketgröße)." };
+  if (!f.title || !f.price) return { ok: false, error: "Titel und Preis fehlen." };
+  write((d) => {
+    const dr = d.listing_drafts.find((x) => x.id === f.id);
+    if (!dr) return;
+    Object.assign(dr, { title: f.title, description: f.description, price: f.price, template_listing_id: tpl.id, brand: f.brand, account_id: tpl.account_id, status: "queued", error: null, updated_at: now() });
+    queueJob(d, tpl.account_id, "create_listing", {
+      draft_id: dr.id, template_item_id: tpl.vinted_item_id, template_brand: tpl.brand,
+      title: f.title, description: f.description, price: f.price, brand: f.brand, photo_paths: dr.photos,
+    });
+  });
+  log("job", `Neues Angebot zum Hochladen geplant: ${f.title}`, tpl.account_id);
+  revalidatePath("/neu");
+  return { ok: true };
+}
+
+export async function deleteListingDraft(draftId: string) {
+  const dr = read().listing_drafts.find((x) => x.id === draftId);
+  if (dr && dr.status !== "uploaded") dr.photos.forEach(deleteImage);
+  write((d) => { d.listing_drafts = d.listing_drafts.filter((x) => x.id !== draftId); });
+  revalidatePath("/neu");
+}

@@ -141,7 +141,7 @@
     const conversations = await step("Nachrichten", () => inbox(), []);
     await jitter();
     const orders = await step("Verkäufe", () => soldOrders(), []);
-    const notifs = await step("Benachrichtigungen", () => notifications(), []);
+    const notifs = await notifications().catch(() => []); // optional – Endpunkt nicht überall verfügbar
     return { me, items: w.items, items_complete: w.complete, conversations, orders, notifications: notifs, errors };
   }
 
@@ -222,6 +222,57 @@
     return r?.id ?? r?.photo?.id;
   }
 
+  async function uploadPhotoFromBase64({ b64, type }) {
+    const bin = atob(b64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    const fd = new FormData();
+    fd.append("photo[type]", "item");
+    fd.append("photo[file]", new Blob([bytes], { type: type || "image/jpeg" }), "photo.jpg");
+    fd.append("photo[temp_uuid]", uuid());
+    const r = await api("POST", "/api/v2/photos", fd, { form: true });
+    return r?.id ?? r?.photo?.id;
+  }
+
+  async function findBrand(name) {
+    const q = encodeURIComponent(name);
+    for (const path of [`/api/v2/brands?keyword=${q}&per_page=10`, `/api/v2/item_upload/brands?keyword=${q}`, `/api/v2/catalog/brands?search_text=${q}`]) {
+      try {
+        const r = await api("GET", path);
+        const list = r?.brands ?? r?.items ?? [];
+        const hit = list.find((b) => String(b.title || b.name || "").toLowerCase() === name.toLowerCase()) ?? list[0];
+        if (hit?.id) return { id: hit.id, title: hit.title || hit.name };
+      } catch { /* nächsten Endpunkt probieren */ }
+    }
+    return null;
+  }
+
+  /** Neues Angebot: Kategorie, Größe, Zustand & Paketgröße vom Vorlage-Artikel, Rest aus Resello. */
+  async function createListing(p) {
+    const tpl = await step("Vorlage-Artikel laden", () => getEditableItem(p.template_item_id));
+    const photoIds = [];
+    for (const [i, ph] of (p.photo_data || []).entries()) {
+      const pid = await step(`Foto ${i + 1} hochladen`, () => uploadPhotoFromBase64(ph));
+      if (!pid) throw new Error(`Foto ${i + 1} hochladen: keine Foto-ID erhalten`);
+      photoIds.push(pid);
+      await jitter(800, 2000);
+    }
+    if (!photoIds.length) throw new Error("Keine Fotos zum Hochladen");
+    const item = uploadPayload(tpl, { id: null, photoIds, price: p.price });
+    item.title = p.title;
+    item.description = p.description;
+    const tplBrand = String(tpl.brand ?? tpl.brand_title ?? "").toLowerCase();
+    if (p.brand && p.brand.toLowerCase() !== tplBrand) {
+      const b = await findBrand(p.brand);
+      item.brand_id = b?.id ?? null;
+      item.brand = b?.title ?? p.brand;
+    }
+    const created = await step("Angebot anlegen", () => api("POST", "/api/v2/item_upload/items", { item, feedback_id: null, parcel: null, upload_session_id: uuid() }));
+    const newId = created?.item?.id;
+    if (!newId) throw new Error("Angebot wurde nicht angelegt");
+    return { new_item_id: newId, new_url: created?.item?.url ?? null };
+  }
+
   /** Sicheres Neueinstellen: neuer Artikel wird erst erstellt, der alte erst danach gelöscht. */
   async function relist({ vinted_item_id }) {
     const item = await step("Artikeldaten laden", () => getEditableItem(vinted_item_id));
@@ -261,6 +312,7 @@
       case "price_change": return await changePrice(p);
       case "relist": return await relist(p);
       case "delete_item": return await deleteItem(p);
+      case "create_listing": return await createListing(p);
       default: throw new Error("Unbekannter Job-Typ: " + job.type);
     }
   }

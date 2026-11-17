@@ -39,9 +39,12 @@ function findDate(raw: Raw, preferred: string[]): string | null {
   const scan = (o: Raw, depth: number): string | null => {
     if (!o || typeof o !== "object" || depth > 2) return null;
     for (const [k, val] of Object.entries(o)) {
-      if (/(date|_at$|_ts$|time)/i.test(k) && (typeof val === "string" || typeof val === "number")) { const v = ts(val); if (v) return v; }
+      if (/(date|_at$|_ts$)/i.test(k) && (typeof val === "string" || typeof val === "number")) { const v = ts(val); if (v) return v; }
     }
-    for (const val of Object.values(o)) { if (val && typeof val === "object" && !Array.isArray(val)) { const v = scan(val, depth + 1); if (v) return v; } }
+    for (const [k, val] of Object.entries(o)) {
+      if (/photo|image|thumb|avatar|user|buyer|seller/i.test(k)) continue; // Foto-/Profil-Zeitstempel sind kein Verkaufsdatum
+      if (val && typeof val === "object" && !Array.isArray(val)) { const v = scan(val, depth + 1); if (v) return v; }
+    }
     return null;
   };
   return scan(raw, 0);

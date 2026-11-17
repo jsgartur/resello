@@ -2,12 +2,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard, Package, Inbox, Zap, Wallet, Sparkles, Images, Users, Settings,
+  LayoutDashboard, Package, Inbox, Zap, Wallet, Sparkles, Images, Users, Settings, PlusCircle,
 } from "lucide-react";
 
 export const groups = [
   { title: "Arbeitsbereich", items: [
     { href: "/", label: "Übersicht", icon: LayoutDashboard },
+    { href: "/neu", label: "Neues Angebot", icon: PlusCircle },
     { href: "/angebote", label: "Angebote", icon: Package },
     { href: "/postfach", label: "Postfach", icon: Inbox },
     { href: "/automationen", label: "Automationen", icon: Zap },
@@ -28,7 +29,7 @@ export function Sidebar({ pendingDrafts }: { pendingDrafts: number }) {
   return (
     <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-line bg-panel p-3 lg:flex">
       <div className="mb-6 flex items-center gap-2 px-2 pt-1">
-        <div className="grid h-8 w-8 place-items-center rounded-lg bg-accent font-bold text-black">R</div>
+        <img src="/icon-192.png" alt="" className="h-8 w-8 rounded-lg" />
         <div>
           <div className="text-sm font-semibold">Resello</div>
           <div className="text-[11px] text-muted">Vinted Cockpit</div>

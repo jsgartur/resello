@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@font-face { font-family: "Anton"; src: url("/fonts/anton.woff2") format("woff2"); font-display: swap; }
+
 @theme {
   --color-bg: #0b0d0e;
   --color-panel: #131719;
@@ -20,3 +22,10 @@ html, body { background: var(--color-bg); color: #ececf1; }
 @utility input { @apply w-full rounded-lg border border-line bg-panel-2 px-3 py-2 text-sm outline-none focus:border-accent; }
 @utility label { @apply mb-1 block text-xs font-medium text-muted; }
 @utility badge { @apply inline-flex items-center rounded-full border border-line px-2 py-0.5 text-[11px] text-muted; }
+
+* { scrollbar-width: thin; scrollbar-color: #2b3437 transparent; }
+*::-webkit-scrollbar { width: 6px; height: 6px; }
+*::-webkit-scrollbar-thumb { background: #2b3437; border-radius: 99px; }
+*::-webkit-scrollbar-track { background: transparent; }
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }

@@ -20,6 +20,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       const retry = job.attempts < MAX_ATTEMPTS;
       Object.assign(job, { status: retry ? "queued" : "failed", error, run_after: new Date(Date.now() + 5 * 60000 * job.attempts).toISOString(), finished_at: retry ? null : t });
       if (!retry && p.draft_id) { const dr = d.drafts.find((x) => x.id === p.draft_id); if (dr) dr.status = "failed"; }
+      if (job.type === "create_listing" && p.draft_id) {
+        const ld = d.listing_drafts.find((x) => x.id === p.draft_id);
+        if (ld) Object.assign(ld, { status: retry ? "queued" : "failed", error });
+      }
       return { job, retry, msg: retry ? null : `Job ${job.type} fehlgeschlagen: ${error}` };
     }
 
@@ -37,6 +41,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       msg = `Neu eingestellt: ${l.title}`;
     }
     if (job.type === "delete_item" && l) l.status = "deleted";
+    if (job.type === "create_listing" && p.draft_id) {
+      const ld = d.listing_drafts.find((x) => x.id === p.draft_id);
+      if (ld) Object.assign(ld, { status: "uploaded", error: null, vinted_item_id: result?.new_item_id ?? null, vinted_url: result?.new_url ?? null });
+      msg = `Neues Angebot hochgeladen: ${p.title}`;
+    }
     return { job, retry: false, msg };
   });
 

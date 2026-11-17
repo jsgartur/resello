@@ -2,14 +2,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { LayoutDashboard, Package, Inbox, Zap, Menu, X } from "lucide-react";
+import { LayoutDashboard, Package, Inbox, PlusCircle, Menu, X } from "lucide-react";
 import { groups } from "@/components/Sidebar";
 
 const MAIN = [
   { href: "/", label: "Übersicht", icon: LayoutDashboard },
   { href: "/angebote", label: "Angebote", icon: Package },
+  { href: "/neu", label: "Neu", icon: PlusCircle },
   { href: "/postfach", label: "Postfach", icon: Inbox },
-  { href: "/automationen", label: "Automation", icon: Zap },
 ];
 
 /** Untere App-Leiste + "Mehr"-Menü für das Handy */

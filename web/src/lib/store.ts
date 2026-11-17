@@ -43,7 +43,7 @@ export type FavouriteEvent = { id: string; account_id: string; vinted_item_id: n
 export type Expense = { id: string; label: string; amount: number; spent_at: string };
 export type RuleType = "relist" | "price_drop" | "auto_counter" | "ai_replies" | "favourite_followup";
 export type Rule = { id: string; type: RuleType; enabled: boolean; config: Record<string, string | number>; last_run_at?: string | null; last_result?: string | null };
-export type JobType = "sync" | "relist" | "price_change" | "send_message" | "delete_item";
+export type JobType = "sync" | "relist" | "price_change" | "send_message" | "delete_item" | "create_listing";
 export type Job = {
   id: string; account_id: string; type: JobType; payload: Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
   status: "queued" | "running" | "done" | "failed" | "cancelled"; attempts: number; result: unknown; error: string | null;
@@ -51,17 +51,25 @@ export type Job = {
 };
 export type StudioImage = { id: string; tool: string; prompt: string; input_paths: string[]; output_path: string; created_at: string };
 export type StudioModel = { id: string; name: string; gender: "m" | "w" | "x"; path: string; created_at: string; source?: "upload" | "ki" };
+export type ListingDraft = {
+  id: string; art: string | null; photos: string[]; title: string; description: string; hashtags: string[];
+  brand: string | null; size: string | null; condition: string | null; colors: string[]; category: string | null;
+  price: number | null; price_low: number | null; price_high: number | null; unsure: string[];
+  template_listing_id: string | null; account_id: string | null;
+  status: "draft" | "queued" | "uploaded" | "failed"; vinted_item_id: number | null; vinted_url: string | null; error: string | null;
+  created_at: string; updated_at: string;
+};
 export type Activity = { id: string; account_id: string | null; kind: string; message: string; created_at: string };
 
 export type Data = {
   accounts: Account[]; listings: Listing[]; conversations: Conversation[]; messages: Message[]; drafts: Draft[];
   orders: Order[]; favourites: FavouriteEvent[]; expenses: Expense[]; rules: Rule[]; jobs: Job[];
-  studio_images: StudioImage[]; studio_models: StudioModel[]; activity: Activity[];
+  studio_images: StudioImage[]; studio_models: StudioModel[]; activity: Activity[]; listing_drafts: ListingDraft[];
 };
 
 const empty = (): Data => ({
   accounts: [], listings: [], conversations: [], messages: [], drafts: [], orders: [], favourites: [],
-  expenses: [], rules: [], jobs: [], studio_images: [], studio_models: [], activity: [],
+  expenses: [], rules: [], jobs: [], studio_images: [], studio_models: [], activity: [], listing_drafts: [],
 });
 
 export const DATA_DIR = path.resolve(process.env.DATA_DIR || path.join(process.cwd(), "data"));

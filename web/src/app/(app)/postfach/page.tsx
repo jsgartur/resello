@@ -71,10 +71,10 @@ export default async function Inbox({ searchParams }: { searchParams: Promise<{ 
                 <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
                 <input name="q" defaultValue={q} placeholder="Postfach durchsuchen" className="input pl-9" />
               </form>
-              <div className="flex gap-1.5 overflow-x-auto">
+              <div className="flex flex-wrap gap-1.5">
                 {FILTERS.map((x) => (
                   <Link key={x.key} href={`/postfach?${new URLSearchParams({ ...(x.key !== "alle" ? { f: x.key } : {}), ...(q ? { q } : {}) })}`}
-                    className={`whitespace-nowrap rounded-full border px-3 py-1 text-xs ${f === x.key ? "border-accent/60 bg-accent/10 text-white" : "border-line text-muted hover:text-white"}`}>
+                    className={`whitespace-nowrap rounded-full border px-2.5 py-1 text-xs ${f === x.key ? "border-accent/60 bg-accent/10 text-white" : "border-line text-muted hover:text-white"}`}>
                     {x.label}
                     {x.key === "alle" && <span className="ml-1 text-muted">{all.length}</span>}
                     {x.key === "ungelesen" && counts.unread > 0 && <span className="ml-1 text-accent">{counts.unread}</span>}
@@ -84,21 +84,21 @@ export default async function Inbox({ searchParams }: { searchParams: Promise<{ 
                 ))}
               </div>
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
               {convs.map((x) => {
                 const lst = x.listing_id ? d.listings.find((l) => l.id === x.listing_id) : null;
                 const pend = pendingFor(x.id);
                 return (
                   <Link key={x.id} href={qs({ c: x.id })}
-                    className={`flex gap-3 border-b border-line/60 px-4 py-3 transition ${x.id === conv?.id ? "bg-panel-2" : "hover:bg-panel-2/60"}`}>
+                    className={`flex gap-3 border-b border-line/50 px-4 py-3 transition ${x.id === conv?.id ? "bg-accent/[0.07] shadow-[inset_3px_0_0_var(--color-accent)]" : "hover:bg-panel-2/60"}`}>
                     <Avatar c={x} />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-baseline justify-between gap-2">
                         <span className={`truncate text-sm ${x.unread ? "font-semibold text-white" : "font-medium"}`}>{x.other_user}</span>
                         <span className="shrink-0 text-[11px] text-muted">{shortDate(x.last_message_at)}</span>
                       </div>
-                      {lst && <div className="truncate text-xs text-muted">{lst.title}</div>}
-                      <div className="truncate text-xs text-muted/80">{x.last_message}</div>
+                      <div className={`mt-0.5 truncate text-xs ${x.unread ? "text-white/90" : "text-muted"}`}>{x.last_message}</div>
+                      {lst && <div className="truncate text-[11px] text-muted/70">{lst.title}</div>}
                       <div className="mt-1 flex flex-wrap gap-1">
                         {lst && <span className="text-xs font-medium">{eur(lst.price)}</span>}
                         {x.needs_action === "offer" && <span className="badge border-accent/40 text-accent">Angebot</span>}
@@ -106,7 +106,10 @@ export default async function Inbox({ searchParams }: { searchParams: Promise<{ 
                         {pend > 0 && <span className="badge border-accent/40 text-accent">KI-Entwurf</span>}
                       </div>
                     </div>
-                    {x.unread && <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-accent" />}
+                    <div className="flex shrink-0 flex-col items-end gap-1.5">
+                      {lst?.photo_url ? <img src={lst.photo_url} alt="" className="h-12 w-10 rounded-md object-cover" /> : <div className="h-12 w-10 rounded-md bg-panel-2" />}
+                      {x.unread && <span className="h-2 w-2 rounded-full bg-accent" />}
+                    </div>
                   </Link>
                 );
               })}
