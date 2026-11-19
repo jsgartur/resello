@@ -24,7 +24,7 @@ export function Studio() {
   const [gender, setGender] = useState<"own" | "all" | "m" | "w">("all");
   const [genBusy, setGenBusy] = useState<{ done: number; total: number } | null>(null);
   const [genError, setGenError] = useState<string | null>(null);
-  const [opts, setOpts] = useState({ topFit: "original", pantsFit: "original", background: "white", flatlayStyle: "minimal", custom: "" });
+  const [opts, setOpts] = useState({ wear: "auto", hint: "", topFit: "original", pantsFit: "original", background: "white", flatlayStyle: "minimal", custom: "" });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ url: string; input: string } | null>(null);
@@ -155,6 +155,11 @@ export function Studio() {
           <div className="card space-y-3 p-5">
             <div className="text-sm font-medium">Optionen</div>
             {tool === "tryon" && <>
+              {sel("wear", [["auto", "Automatisch (alles auf dem Foto)"], ["set", "Set: Oberteil + Hose"], ["top", "Nur Oberteil / Jacke"], ["bottom", "Nur Hose"]], "Was soll das Model tragen?")}
+              <div>
+                <label className="label">Hinweis für die KI (optional)</label>
+                <input value={opts.hint} onChange={(e) => setOpts({ ...opts, hint: e.target.value })} placeholder="z. B. Jacke geschlossen tragen" className="input" />
+              </div>
               {sel("topFit", [["original", "Original beibehalten"], ["oversized", "Oversized"], ["regular", "Regular"], ["slim", "Slim"]], "Oberteil-Schnitt")}
               {sel("pantsFit", [["original", "Original beibehalten"], ["baggy", "Baggy"], ["straight", "Straight"], ["slim", "Slim"]], "Hosen-Schnitt")}
             </>}

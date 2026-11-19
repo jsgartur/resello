@@ -20,6 +20,8 @@ export type StudioOptions = {
   flatlayStyle?: "wood" | "marble" | "linen" | "concrete" | "minimal";
   topFit?: "original" | "oversized" | "regular" | "slim";
   pantsFit?: "original" | "baggy" | "straight" | "slim";
+  wear?: "auto" | "set" | "top" | "bottom";
+  hint?: string;
   custom?: string;
 };
 
@@ -31,11 +33,18 @@ export function buildPrompt(o: StudioOptions) {
     case "tryon": {
       const fit = [
         o.topFit && o.topFit !== "original" ? `The top should have a ${o.topFit} fit.` : "",
-        o.pantsFit && o.pantsFit !== "original" ? `Pants should have a ${o.pantsFit} fit.` : "",
-      ].join(" ");
+        o.pantsFit && o.pantsFit !== "original" ? `The pants should have a ${o.pantsFit} fit.` : "",
+      ].filter(Boolean).join(" ");
+      const wear = {
+        auto: "First identify EVERY garment shown in the product photos (for example a jacket AND matching pants of a tracksuit set). The person must wear ALL of these garments at the same time – never leave one out and never replace one with a different garment.",
+        set: "The product photos show a SET (e.g. tracksuit jacket + pants). The person must wear BOTH the top and the bottom from the photos at the same time. The jacket is worn on the upper body (zipped up or slightly open).",
+        top: "Only the TOP / JACKET from the product photos is worn. Combine it with plain, simple dark jeans.",
+        bottom: "Only the PANTS / BOTTOM from the product photos are worn. Combine them with a plain white t-shirt.",
+      }[o.wear ?? "auto"];
+      const rules = `${wear} Reproduce each garment exactly: same color, fabric, stripes, logos, crests, zips and details as in the photos. Do not add garments or accessories that are not in the photos, except plain shoes${o.wear === "top" || o.wear === "bottom" ? " and the neutral basic mentioned above" : ""}. ${o.hint ? `Note from the seller: ${o.hint}.` : ""} ${fit}`;
       return o.model
-        ? `The LAST image shows a person. The other images show a clothing item (product photos). Dress the person in exactly this clothing item, replacing the corresponding garment they wear. Keep the person's face, body, pose, hands, background and lighting unchanged. ${fit} ${QUALITY}`
-        : `The images show a clothing item (product photos). Create a casual, authentic secondhand-marketplace style mirror/fit photo of a person wearing exactly this item, full outfit visible, neutral indoor background. Face may be cropped or covered by phone. ${fit} ${QUALITY}`;
+        ? `The LAST image shows a person (the model). All other images are product photos of clothing. Dress the model in the clothing from the product photos, replacing what they currently wear on the corresponding body parts. ${rules} Keep the model's face, body, pose, hands, background and lighting unchanged. ${QUALITY}`
+        : `All images are product photos of clothing. Create a casual, authentic secondhand-marketplace "fit pic": a mirror selfie of a person wearing the clothing, full body from neck to shoes visible, neutral bright indoor background, face hidden by the phone or cropped. ${rules} ${QUALITY}`;
     }
     case "background": {
       const bg = {

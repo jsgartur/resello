@@ -39,6 +39,8 @@ export async function POST(req: NextRequest) {
       flatlayStyle: (form.get("flatlayStyle") as StudioOptions["flatlayStyle"]) || undefined,
       topFit: (form.get("topFit") as StudioOptions["topFit"]) || undefined,
       pantsFit: (form.get("pantsFit") as StudioOptions["pantsFit"]) || undefined,
+      wear: (form.get("wear") as StudioOptions["wear"]) || "auto",
+      hint: String(form.get("hint") || "").slice(0, 300),
       custom: String(form.get("custom") || ""),
     };
 
