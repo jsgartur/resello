@@ -10,16 +10,17 @@
   --color-muted: #8a979b;
   --color-accent: #34d3b4;
   --color-accent-2: #5ee6cb;
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
-html, body { background: var(--color-bg); color: #ececf1; }
+html, body { background: var(--color-bg); color: #ececf1; font-feature-settings: "cv11", "ss01"; letter-spacing: -0.005em; }
+h1, h2, h3 { letter-spacing: -0.02em; }
 
-@utility card { @apply rounded-xl border border-line bg-panel; }
+@utility card { @apply rounded-2xl border border-line bg-panel shadow-[0_1px_0_rgba(255,255,255,0.03)_inset,0_8px_24px_-12px_rgba(0,0,0,0.6)]; }
 @utility btn { @apply inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed; }
-@utility btn-primary { @apply inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed bg-accent text-black hover:bg-accent-2; }
-@utility btn-ghost { @apply inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed border border-line bg-panel-2 hover:bg-line; }
-@utility input { @apply w-full rounded-lg border border-line bg-panel-2 px-3 py-2 text-sm outline-none focus:border-accent; }
+@utility btn-primary { @apply inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed bg-accent text-black shadow-[0_6px_20px_-8px_rgba(52,211,180,0.6)] hover:bg-accent-2 active:scale-[0.98]; }
+@utility btn-ghost { @apply inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed border border-line bg-panel-2 hover:bg-line hover:border-[#33413f] active:scale-[0.98]; }
+@utility input { @apply w-full rounded-lg border border-line bg-panel-2 px-3 py-2 text-sm outline-none transition placeholder:text-[#5d696c] focus:border-accent focus:ring-2 focus:ring-accent/20; }
 @utility label { @apply mb-1 block text-xs font-medium text-muted; }
 @utility badge { @apply inline-flex items-center rounded-full border border-line px-2 py-0.5 text-[11px] text-muted; }
 

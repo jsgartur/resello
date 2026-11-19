@@ -1,6 +1,7 @@
 "use server";
 import { revalidatePath } from "next/cache";
-import { write, read, id, now, log, queueJob, deleteImage, RuleType } from "@/lib/store";
+import { write, read, id, now, log, queueJob, deleteImage, readImage, saveImage, RuleType } from "@/lib/store";
+import { blankDraft } from "@/lib/drafts";
 
 const num = (v: FormDataEntryValue | null) => (v === null || v === "" ? null : Number(String(v).replace(",", ".")));
 
@@ -252,5 +253,47 @@ export async function deleteListingDraft(draftId: string) {
   const dr = read().listing_drafts.find((x) => x.id === draftId);
   if (dr && dr.status !== "uploaded") dr.photos.forEach(deleteImage);
   write((d) => { d.listing_drafts = d.listing_drafts.filter((x) => x.id !== draftId); });
+  revalidatePath("/neu");
+}
+
+// ---------- Entwürfe ↔ Bildstudio ----------
+/** Bild aus dem Bildstudio in einen Entwurf übernehmen (vorne als Titelbild oder hinten). Ohne draftId → neuer Entwurf. */
+export async function addStudioImageToDraft(imageId: string, draftId: string | null, asCover = true): Promise<{ ok: boolean; draftId?: string; error?: string }> {
+  const img = read().studio_images.find((x) => x.id === imageId);
+  if (!img) return { ok: false, error: "Bild nicht gefunden" };
+  let data: Buffer;
+  try { data = readImage(img.output_path); } catch { return { ok: false, error: "Bilddatei fehlt" }; }
+  const extn = img.output_path.split(".").pop() || "png";
+  const path = saveImage(`listings/${Date.now()}-${Math.random().toString(36).slice(2, 6)}-studio.${extn}`, data);
+  let target = draftId;
+  const res = write((d) => {
+    let dr = target ? d.listing_drafts.find((x) => x.id === target) : null;
+    if (dr && (dr.status === "queued" || dr.status === "uploaded")) return "locked";
+    if (!dr) { dr = blankDraft([path]); d.listing_drafts.push(dr); target = dr.id; return "ok"; }
+    dr.photos = asCover ? [path, ...dr.photos] : [...dr.photos, path];
+    dr.updated_at = now();
+    return "ok";
+  });
+  if (res === "locked") { deleteImage(path); return { ok: false, error: "Dieser Entwurf ist schon hochgeladen." }; }
+  revalidatePath("/neu"); revalidatePath("/galerie");
+  return { ok: true, draftId: target ?? undefined };
+}
+
+export async function removeDraftPhoto(draftId: string, path: string) {
+  write((d) => {
+    const dr = d.listing_drafts.find((x) => x.id === draftId);
+    if (!dr || dr.status === "queued" || dr.status === "uploaded") return;
+    dr.photos = dr.photos.filter((p) => p !== path); dr.updated_at = now();
+  });
+  deleteImage(path);
+  revalidatePath("/neu");
+}
+
+export async function makeDraftCover(draftId: string, path: string) {
+  write((d) => {
+    const dr = d.listing_drafts.find((x) => x.id === draftId);
+    if (!dr || !dr.photos.includes(path)) return;
+    dr.photos = [path, ...dr.photos.filter((p) => p !== path)]; dr.updated_at = now();
+  });
   revalidatePath("/neu");
 }

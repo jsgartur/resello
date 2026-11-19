@@ -1,5 +1,6 @@
 import "server-only";
 import { GoogleGenAI } from "@google/genai";
+import { imageSize } from "image-size";
 
 let ai: GoogleGenAI | null = null;
 function client() {
@@ -21,6 +22,7 @@ export type StudioOptions = {
   topFit?: "original" | "oversized" | "regular" | "slim";
   pantsFit?: "original" | "baggy" | "straight" | "slim";
   wear?: "auto" | "set" | "top" | "bottom";
+  quality?: "1K" | "2K" | "4K";
   hint?: string;
   custom?: string;
 };
@@ -43,7 +45,7 @@ export function buildPrompt(o: StudioOptions) {
       }[o.wear ?? "auto"];
       const rules = `${wear} Reproduce each garment exactly: same color, fabric, stripes, logos, crests, zips and details as in the photos. Do not add garments or accessories that are not in the photos, except plain shoes${o.wear === "top" || o.wear === "bottom" ? " and the neutral basic mentioned above" : ""}. ${o.hint ? `Note from the seller: ${o.hint}.` : ""} ${fit}`;
       return o.model
-        ? `The LAST image shows a person (the model). All other images are product photos of clothing. Dress the model in the clothing from the product photos, replacing what they currently wear on the corresponding body parts. ${rules} Keep the model's face, body, pose, hands, background and lighting unchanged. ${QUALITY}`
+        ? `The LAST image shows a person (the model). All other images are product photos of clothing. Dress the model in the clothing from the product photos, replacing what they currently wear on the corresponding body parts. ${rules} Keep the model's face, hair, body shape, pose, hands, phone, background and lighting unchanged. Keep the EXACT framing, crop and composition of the model photo: everything in front of the person (mirror frame, shelves, sink, furniture) stays exactly where it is, and body parts that are hidden or outside the frame stay hidden – never draw extra legs, feet or limbs below or beside objects. Output in the same aspect ratio as the model photo. ${QUALITY}`
         : `All images are product photos of clothing. Create a casual, authentic secondhand-marketplace "fit pic": a mirror selfie of a person wearing the clothing, full body from neck to shoes visible, neutral bright indoor background, face hidden by the phone or cropped. ${rules} ${QUALITY}`;
     }
     case "background": {
@@ -73,30 +75,59 @@ export function buildPrompt(o: StudioOptions) {
 }
 
 /** Erzeugt ein Bild mit Gemini. Gibt PNG/JPEG-Buffer zurück. */
-export async function generateStudioImage(o: StudioOptions): Promise<{ data: Buffer; mimeType: string; prompt: string }> {
+const RATIOS: [string, number][] = [["1:1", 1], ["4:5", 0.8], ["3:4", 0.75], ["2:3", 2 / 3], ["9:16", 9 / 16], ["5:4", 1.25], ["4:3", 4 / 3], ["3:2", 1.5], ["16:9", 16 / 9]];
+function aspectOf(img?: InputImage | null) {
+  if (!img) return "3:4";
+  try {
+    const { width, height } = imageSize(img.data);
+    if (!width || !height) return "3:4";
+    const r = width / height;
+    return RATIOS.reduce((best, cur) => (Math.abs(cur[1] - r) < Math.abs(best[1] - r) ? cur : best))[0];
+  } catch { return "3:4"; }
+}
+
+// Neuere Modelle zuerst (2K/4K), ältestes als Rückfall (nur ~1K)
+function imageModels() {
+  const list = [process.env.GEMINI_IMAGE_MODEL, "gemini-3.1-flash-image", "gemini-3.1-flash-image-preview", "gemini-3-pro-image-preview", "gemini-2.5-flash-image"].filter(Boolean) as string[];
+  return [...new Set(list)];
+}
+const g = globalThis as unknown as { __resello_imgModel?: string };
+
+/** Erzeugt ein Bild mit Gemini. Gibt PNG/JPEG-Buffer zurück. */
+export async function generateStudioImage(o: StudioOptions): Promise<{ data: Buffer; mimeType: string; prompt: string; model: string }> {
   const prompt = buildPrompt(o);
   const images = [...o.garments, ...(o.model ? [o.model] : [])];
-  const res = await client().models.generateContent({
-    model: process.env.GEMINI_IMAGE_MODEL || "gemini-2.5-flash-image",
-    contents: [
-      {
-        role: "user",
-        parts: [
-          ...images.map((img) => ({ inlineData: { data: img.data.toString("base64"), mimeType: img.mimeType } })),
-          { text: prompt },
-        ],
-      },
-    ],
-    config: { responseModalities: ["IMAGE", "TEXT"] },
-  });
+  const aspectRatio = aspectOf(o.model ?? (o.tool === "tryon" ? null : o.garments[0]));
+  const models = g.__resello_imgModel ? [g.__resello_imgModel, ...imageModels().filter((m) => m !== g.__resello_imgModel)] : imageModels();
+  let lastErr: unknown = null;
 
-  const parts = res.candidates?.[0]?.content?.parts ?? [];
-  const img = parts.find((p) => p.inlineData?.data);
-  if (!img?.inlineData?.data) {
-    const text = parts.map((p) => p.text).filter(Boolean).join(" ");
-    throw new Error(`Gemini hat kein Bild geliefert${text ? `: ${text}` : ""}`);
+  for (const model of models) {
+    const old = model.startsWith("gemini-2.5");
+    try {
+      const res = await client().models.generateContent({
+        model,
+        contents: [{ role: "user", parts: [...images.map((img) => ({ inlineData: { data: img.data.toString("base64"), mimeType: img.mimeType } })), { text: prompt }] }],
+        config: {
+          responseModalities: ["IMAGE", "TEXT"],
+          imageConfig: old ? { aspectRatio } : { aspectRatio, imageSize: o.quality ?? "2K" },
+        },
+      });
+      const parts = res.candidates?.[0]?.content?.parts ?? [];
+      const img = parts.find((p) => p.inlineData?.data);
+      if (!img?.inlineData?.data) {
+        const text = parts.map((p) => p.text).filter(Boolean).join(" ");
+        throw Object.assign(new Error(`Gemini hat kein Bild geliefert${text ? `: ${text}` : ""}`), { final: true });
+      }
+      g.__resello_imgModel = model;
+      return { data: Buffer.from(img.inlineData.data, "base64"), mimeType: img.inlineData.mimeType || "image/png", prompt, model };
+    } catch (e) {
+      lastErr = e;
+      const msg = String((e as Error)?.message ?? e);
+      // Modell nicht verfügbar → nächstes probieren; andere Fehler direkt melden
+      if ((e as { final?: boolean }).final || !/not found|404|not supported|unsupported|permission|403|invalid argument|400/i.test(msg)) throw e;
+    }
   }
-  return { data: Buffer.from(img.inlineData.data, "base64"), mimeType: img.inlineData.mimeType || "image/png", prompt };
+  throw lastErr instanceof Error ? lastErr : new Error("Kein Bildmodell verfügbar");
 }
 
 /** Text-Generierung (Antwortentwürfe, Beschreibungen). */

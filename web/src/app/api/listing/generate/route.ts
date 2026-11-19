@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { read, write, id, now, saveImage, readImage, ListingDraft } from "@/lib/store";
 import { generateListing, tagsText } from "@/lib/listing-ai";
+import { blankDraft } from "@/lib/drafts";
 
 export const maxDuration = 120;
 const ext = (mime: string) => (mime.includes("png") ? "png" : mime.includes("webp") ? "webp" : "jpg");
 
-/** Fotos speichern + KI-Listing erzeugen. Mit draft_id: vorhandene Fotos neu auswerten. */
+/**
+ * Fotos speichern + KI-Listing erzeugen.
+ * draft_id: vorhandenen Entwurf neu auswerten · append=1: Fotos an Entwurf anhängen (ohne KI)
+ * skip_ai=1: nur Entwurf mit Fotos anlegen, Text später
+ */
 export async function POST(req: NextRequest) {
   try {
     const form = await req.formData();
@@ -14,6 +19,8 @@ export async function POST(req: NextRequest) {
     const cond = String(form.get("cond") || "");
     const notes = String(form.get("notes") || "").trim();
     const art = String(form.get("art") || "").trim() || null;
+    const skipAi = form.get("skip_ai") === "1";
+    const append = form.get("append") === "1";
 
     let photos: string[] = [];
     const existing = draftId ? read().listing_drafts.find((x) => x.id === draftId) : null;
@@ -21,8 +28,20 @@ export async function POST(req: NextRequest) {
     if (files.length) {
       const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
       for (const [i, f] of files.entries()) photos.push(saveImage(`listings/${stamp}-${i}.${ext(f.type)}`, Buffer.from(await f.arrayBuffer())));
-    } else if (existing) photos = existing.photos;
+    }
+    if (existing && (append || !files.length)) photos = append ? [...existing.photos, ...photos].slice(0, 20) : existing.photos;
     if (!photos.length) return NextResponse.json({ error: "Bitte mindestens ein Foto hinzufügen" }, { status: 400 });
+
+    if (append && existing) {
+      const updated = write((d) => { const dr = d.listing_drafts.find((x) => x.id === existing.id)!; dr.photos = photos; dr.updated_at = now(); return { ...dr }; });
+      return NextResponse.json({ draft: updated });
+    }
+    if (skipAi) {
+      const dr = existing ? { ...existing, photos, updated_at: now() } : blankDraft(photos, art);
+      if (!existing && art) dr.description = "Artikelnummer: " + art;
+      write((d) => { d.listing_drafts = d.listing_drafts.filter((x) => x.id !== dr.id); d.listing_drafts.push(dr); });
+      return NextResponse.json({ draft: dr });
+    }
 
     // KI bekommt max. 6 Fotos (Kosten/Zeit), Maße-Grafik am Ende ist mit dabei
     const forAi = photos.slice(0, 6).map((p) => ({ data: readImage(p), mimeType: p.endsWith(".png") ? "image/png" : p.endsWith(".webp") ? "image/webp" : "image/jpeg" }));

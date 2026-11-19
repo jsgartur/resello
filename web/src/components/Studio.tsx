@@ -1,7 +1,10 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 import { useEffect, useRef, useState } from "react";
-import { Upload, X, Download, Loader2, Check, Sparkles } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { Upload, X, Download, Loader2, Check, Sparkles, FilePlus2, ArrowRight } from "lucide-react";
+import { addStudioImageToDraft } from "@/app/actions";
 import { ToolArt } from "@/components/ToolArt";
 
 type Tool = "tryon" | "background" | "flatlay" | "enhance" | "custom";
@@ -15,7 +18,15 @@ const TOOLS: { id: Tool; title: string; desc: string; badge: string }[] = [
   { id: "enhance", title: "Aufbessern & Bügeln", desc: "Schärfer, glatter, bessere Farben.", badge: "Upscale" },
 ];
 
-export function Studio() {
+export type DraftOption = { id: string; label: string; photos: string[]; status: string };
+
+export function Studio({ drafts = [], initialDraft }: { drafts?: DraftOption[]; initialDraft?: string }) {
+  const router = useRouter();
+  const [quality, setQuality] = useState<"1K" | "2K" | "4K">("2K");
+  const [targetDraft, setTargetDraft] = useState<string>(initialDraft ?? "");
+  const [linked, setLinked] = useState<{ id: string; msg: string } | null>(null);
+  const [linkBusy, setLinkBusy] = useState(false);
+  const srcDraft = drafts.find((x) => x.id === (initialDraft ?? targetDraft));
   const [tool, setTool] = useState<Tool>("tryon");
   const [step, setStep] = useState(1);
   const [garments, setGarments] = useState<File[]>([]);
@@ -27,7 +38,7 @@ export function Studio() {
   const [opts, setOpts] = useState({ wear: "auto", hint: "", topFit: "original", pantsFit: "original", background: "white", flatlayStyle: "minimal", custom: "" });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<{ url: string; input: string } | null>(null);
+  const [result, setResult] = useState<{ id?: string; url: string; input: string } | null>(null);
   const [split, setSplit] = useState(50);
   const garmentInput = useRef<HTMLInputElement>(null);
   const modelInput = useRef<HTMLInputElement>(null);
@@ -76,6 +87,8 @@ export function Studio() {
     garments.forEach((g) => fd.append("garments", g));
     if (modelId) fd.append("model_id", modelId);
     Object.entries(opts).forEach(([k, v]) => fd.append(k, v));
+    fd.append("quality", quality);
+    setLinked(null);
     try {
       const r = await fetch("/api/studio/generate", { method: "POST", body: fd });
       const d = await r.json();
@@ -86,6 +99,23 @@ export function Studio() {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function addDraftPhoto(path: string) {
+    if (garments.length >= 3) return;
+    const b = await fetch(`/api/bilder/${path}`).then((r) => r.blob()).catch(() => null);
+    if (b) setGarments((g) => [...g, new File([b], path.split("/").pop() || "foto.jpg", { type: b.type || "image/jpeg" })].slice(0, 3));
+  }
+
+  async function toDraft(asCover: boolean) {
+    if (!result) return;
+    setLinkBusy(true);
+    const r = await addStudioImageToDraft((result as { id?: string }).id ?? "", targetDraft || null, asCover);
+    setLinkBusy(false);
+    if (!r.ok || !r.draftId) { setLinked({ id: "", msg: r.error ?? "Fehler" }); return; }
+    setTargetDraft(r.draftId);
+    setLinked({ id: r.draftId, msg: targetDraft ? (asCover ? "Als Titelbild zum Entwurf hinzugefügt." : "Zum Entwurf hinzugefügt.") : "Neuer Entwurf mit diesem Bild erstellt." });
+    router.refresh();
   }
 
   const sel = (key: keyof typeof opts, values: [string, string][], label: string) => (
@@ -136,6 +166,18 @@ export function Studio() {
           <div className="card p-5"
             onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); addGarments(e.dataTransfer.files); }}>
             <div className="mb-3 text-sm font-medium">Fotos vom Artikel (bis zu 3 – z. B. vorne, hinten, Detail)</div>
+            {srcDraft && srcDraft.photos.length > 0 && (
+              <div className="mb-4 rounded-xl border border-accent/30 bg-accent/5 p-3">
+                <div className="mb-2 text-xs text-muted">Aus Entwurf <b className="text-white">{srcDraft.label}</b> übernehmen – antippen:</div>
+                <div className="flex gap-2 overflow-x-auto no-scrollbar">
+                  {srcDraft.photos.map((p) => (
+                    <button key={p} onClick={() => addDraftPhoto(p)} disabled={garments.length >= 3} className="shrink-0 overflow-hidden rounded-lg border border-line hover:border-accent disabled:opacity-40">
+                      <img src={`/api/bilder/${p}`} alt="" className="h-20 w-16 object-cover" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="flex flex-wrap gap-3">
               {garments.map((g, i) => (
                 <div key={i} className="relative">
@@ -154,6 +196,16 @@ export function Studio() {
           </div>
           <div className="card space-y-3 p-5">
             <div className="text-sm font-medium">Optionen</div>
+            <div>
+              <label className="label">Bildqualität</label>
+              <div className="grid grid-cols-3 gap-1 rounded-lg border border-line bg-panel-2/40 p-1">
+                {([["1K", "Schnell"], ["2K", "Hoch"], ["4K", "Maximal"]] as const).map(([q, l]) => (
+                  <button key={q} type="button" onClick={() => setQuality(q)} className={`rounded-md px-2 py-1.5 text-xs ${quality === q ? "bg-accent text-black" : "text-muted hover:text-white"}`}>
+                    <div className="font-semibold">{q}</div><div className="text-[10px] opacity-80">{l}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
             {tool === "tryon" && <>
               {sel("wear", [["auto", "Automatisch (alles auf dem Foto)"], ["set", "Set: Oberteil + Hose"], ["top", "Nur Oberteil / Jacke"], ["bottom", "Nur Hose"]], "Was soll das Model tragen?")}
               <div>
@@ -261,6 +313,21 @@ export function Studio() {
               <div className="text-muted">{garments.length} Foto(s){tool === "tryon" ? ` · Model: ${modelId ? models.find((m) => m.id === modelId)?.name : "KI"}` : ""}</div>
             </div>
             <button onClick={generate} disabled={busy} className="btn-primary w-full">{result ? "Nochmal generieren" : "Generieren"}</button>
+            {result && (
+              <div className="space-y-2 rounded-xl border border-line p-3">
+                <div className="flex items-center gap-2 text-sm font-medium"><FilePlus2 size={15} className="text-accent" />Zum Angebot hinzufügen</div>
+                <select value={targetDraft} onChange={(e) => { setTargetDraft(e.target.value); setLinked(null); }} className="input">
+                  <option value="">+ Neuer Entwurf</option>
+                  {drafts.filter((x) => x.status === "draft" || x.status === "failed").map((x) => <option key={x.id} value={x.id}>{x.label}</option>)}
+                </select>
+                <div className="grid grid-cols-2 gap-2">
+                  <button onClick={() => toDraft(true)} disabled={linkBusy} className="btn-primary text-xs">{linkBusy ? <Loader2 size={14} className="animate-spin" /> : null}{targetDraft ? "Als Titelbild" : "Entwurf erstellen"}</button>
+                  <button onClick={() => toDraft(false)} disabled={linkBusy || !targetDraft} className="btn-ghost text-xs">Hinten anhängen</button>
+                </div>
+                {linked && <div className={`text-xs ${linked.id ? "text-emerald-300" : "text-red-400"}`}>{linked.msg}</div>}
+                {linked?.id && <Link href={`/neu?id=${linked.id}`} className="btn-ghost w-full text-xs">Entwurf öffnen<ArrowRight size={14} /></Link>}
+              </div>
+            )}
             {result && <a href={result.url} download target="_blank" className="btn-ghost w-full"><Download size={16} />Herunterladen</a>}
             <button onClick={() => { setStep(2); setResult(null); }} className="btn-ghost w-full">Auswahl bearbeiten</button>
             <button onClick={() => { setStep(1); setGarments([]); setResult(null); setModelId(null); }} className="w-full text-xs text-muted hover:text-white">Neues Bild starten</button>

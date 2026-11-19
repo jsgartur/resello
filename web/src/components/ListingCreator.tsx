@@ -2,9 +2,10 @@
 /* eslint-disable @next/next/no-img-element */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Upload, X, Sparkles, Loader2, Ruler, Send, Save, Copy, Trash2, ExternalLink, Check, Search } from "lucide-react";
+import Link from "next/link";
+import { Upload, X, Sparkles, Loader2, Ruler, Send, Save, Copy, Trash2, ExternalLink, Check, Search, Wand2, Star, Plus, FilePlus2 } from "lucide-react";
 import type { ListingDraft } from "@/lib/store";
-import { saveListingDraft, uploadListingDraft, deleteListingDraft } from "@/app/actions";
+import { saveListingDraft, uploadListingDraft, deleteListingDraft, removeDraftPhoto, makeDraftCover } from "@/app/actions";
 
 export type TemplateOption = { id: string; title: string; brand: string | null; size: string | null; condition: string | null; photo_url: string | null; status: string };
 
@@ -106,6 +107,7 @@ export function ListingCreator({ drafts, templates, initialId }: { drafts: Listi
   const [tplQ, setTplQ] = useState("");
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const addRef = useRef<HTMLInputElement>(null);
 
   // Maße
   const [mOpen, setMOpen] = useState(false);
@@ -178,12 +180,13 @@ export function ListingCreator({ drafts, templates, initialId }: { drafts: Listi
     if (d.url) setMSrc((s) => ({ ...s, [mKind]: d.url }));
   }
 
-  async function generate(regenerate = false) {
+  async function generate(regenerate = false, skipAi = false) {
     if (!regenerate && !photos.length) { setMsg({ t: "Lade zuerst mindestens ein Foto hoch.", k: "err" }); return; }
     setBusy(true); setMsg(null);
     const fd = new FormData();
     if (!regenerate) photos.forEach((p, i) => fd.append("photos", p.blob, `foto-${i}.jpg`));
     if (regenerate && draftId) fd.append("draft_id", draftId);
+    if (skipAi) fd.append("skip_ai", "1");
     fd.append("size", size); fd.append("cond", cond); fd.append("notes", notes); fd.append("art", art);
     try {
       const r = await fetch("/api/listing/generate", { method: "POST", body: fd });
@@ -191,11 +194,23 @@ export function ListingCreator({ drafts, templates, initialId }: { drafts: Listi
       if (!r.ok) throw new Error(d.error || "Fehler");
       setDraftId(d.draft.id);
       if (!regenerate) { photos.forEach((p) => URL.revokeObjectURL(p.url)); setPhotos([]); if (art) setArt(nextArt(art)); setNotes(""); setSize(""); setCond(""); }
-      setMsg({ t: "Fertig! Prüf kurz Marke, Größe und Preis.", k: "ok" });
+      setMsg({ t: skipAi ? "Entwurf gespeichert. Bilder im Bildstudio bearbeiten oder später Text mit KI erstellen." : "Fertig! Prüf kurz Marke, Größe und Preis.", k: "ok" });
       router.refresh();
     } catch (e) {
       setMsg({ t: e instanceof Error ? e.message : "Fehler", k: "err" });
     } finally { setBusy(false); }
+  }
+
+  async function appendPhotos(list: FileList | null) {
+    if (!list || !draftId) return;
+    setBusy(true);
+    const fd = new FormData();
+    for (const f of Array.from(list)) { const b = await shrink(f); if (b) fd.append("photos", b, "foto.jpg"); }
+    fd.append("draft_id", draftId); fd.append("append", "1");
+    const r = await fetch("/api/listing/generate", { method: "POST", body: fd });
+    setBusy(false);
+    if (!r.ok) setMsg({ t: (await r.json()).error ?? "Fehler", k: "err" });
+    router.refresh();
   }
 
   function draftForm() {
@@ -299,6 +314,7 @@ export function ListingCreator({ drafts, templates, initialId }: { drafts: Listi
           <button onClick={() => generate(false)} disabled={busy || !photos.length} className="btn-primary w-full py-3 text-base">
             {busy ? <><Loader2 size={18} className="animate-spin" />KI schaut sich die Fotos an…</> : <><Sparkles size={18} />Listing mit KI erstellen</>}
           </button>
+          <button onClick={() => generate(false, true)} disabled={busy || !photos.length} className="btn-ghost w-full"><FilePlus2 size={16} />Nur als Entwurf speichern (Text später)</button>
           {msg && <div className={`text-sm ${msg.k === "err" ? "text-red-400" : msg.k === "ok" ? "text-emerald-300" : "text-muted"}`}>{msg.t}</div>}
         </section>
 
@@ -318,9 +334,28 @@ export function ListingCreator({ drafts, templates, initialId }: { drafts: Listi
                 </div>
               </div>
 
-              <div className="flex gap-2 overflow-x-auto no-scrollbar">
-                {draft.photos.map((p, i) => <img key={p} src={`/api/bilder/${p}`} alt="" className={`h-24 w-[72px] shrink-0 rounded-lg border object-cover ${i === 0 ? "border-accent" : "border-line"}`} />)}
+              <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+                {draft.photos.map((p, i) => (
+                  <div key={p} className={`group relative h-28 w-[84px] shrink-0 overflow-hidden rounded-lg border ${i === 0 ? "border-accent" : "border-line"}`}>
+                    <img src={`/api/bilder/${p}`} alt="" className="h-full w-full object-cover" />
+                    {i === 0 && <span className="absolute bottom-1 left-1 rounded bg-black/75 px-1 text-[9px]">Titelbild</span>}
+                    {!locked && (
+                      <div className="absolute right-1 top-1 flex flex-col gap-1">
+                        <button title="Entfernen" onClick={async () => { await removeDraftPhoto(draft.id, p); router.refresh(); }} className="rounded-full bg-black/75 p-1 hover:text-red-400"><X size={11} /></button>
+                        {i > 0 && <button title="Als Titelbild" onClick={async () => { await makeDraftCover(draft.id, p); router.refresh(); }} className="rounded-full bg-black/75 p-1 hover:text-accent"><Star size={11} /></button>}
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {!locked && <>
+                  <button onClick={() => addRef.current?.click()} className="grid h-28 w-[84px] shrink-0 place-items-center rounded-lg border border-dashed border-line text-[11px] text-muted hover:border-accent"><span className="flex flex-col items-center gap-1"><Plus size={16} />Foto</span></button>
+                  <Link href={`/studio?draft=${draft.id}`} className="grid h-28 w-[84px] shrink-0 place-items-center rounded-lg border border-dashed border-accent/50 bg-accent/5 text-center text-[11px] text-accent hover:bg-accent/10"><span className="flex flex-col items-center gap-1"><Wand2 size={16} />Bildstudio</span></Link>
+                </>}
+                <input ref={addRef} type="file" accept="image/*" multiple hidden onChange={(e) => { appendPhotos(e.target.files); e.target.value = ""; }} />
               </div>
+              {!draft.title && !locked && (
+                <button onClick={() => generate(true)} disabled={busy} className="btn-primary w-full">{busy ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}Titel & Beschreibung jetzt mit KI erstellen</button>
+              )}
 
               <div>
                 <div className="mb-1 flex justify-between"><label className="label mb-0">Titel</label><span className="text-[11px] text-muted">{title.length} Zeichen</span></div>
@@ -389,14 +424,14 @@ export function ListingCreator({ drafts, templates, initialId }: { drafts: Listi
 
       {/* ----- Verlauf ----- */}
       <section className="card p-4 lg:p-5">
-        <div className="mb-3 text-sm font-medium">Zuletzt erstellt</div>
+        <div className="mb-3 flex items-center justify-between"><div className="text-sm font-medium">Entwürfe & Angebote</div><span className="text-xs text-muted">{drafts.filter((d) => d.status === "draft").length} offene Entwürfe</span></div>
         {!drafts.length && <div className="text-sm text-muted">Hier landen deine erstellten Listings.</div>}
         <div className="grid gap-2 md:grid-cols-2">
           {[...drafts].reverse().map((d) => (
             <div key={d.id} className={`flex items-center gap-3 rounded-xl border p-2 ${d.id === draftId ? "border-accent/60 bg-accent/5" : "border-line"}`}>
-              <img src={`/api/bilder/${d.photos[0]}`} alt="" className="h-14 w-11 rounded-lg object-cover" />
+              {d.photos[0] ? <img src={`/api/bilder/${d.photos[0]}`} alt="" className="h-14 w-11 rounded-lg object-cover" /> : <div className="h-14 w-11 rounded-lg bg-panel-2" />}
               <button onClick={() => { setDraftId(d.id); window.scrollTo({ top: 0, behavior: "smooth" }); }} className="min-w-0 flex-1 text-left">
-                <div className="truncate text-sm">{d.art ? `${d.art} · ` : ""}{d.title}</div>
+                <div className="truncate text-sm">{d.art ? `${d.art} · ` : ""}{d.title || <span className="text-muted">Entwurf ohne Titel</span>}</div>
                 <div className="mt-1 flex items-center gap-2 text-[11px] text-muted"><span className={`badge ${STATUS[d.status][1]}`}>{STATUS[d.status][0]}</span>{d.price ? `${d.price} €` : ""}</div>
               </button>
               {d.status === "uploaded" ? <Check size={16} className="text-emerald-400" /> : <button onClick={async () => { await deleteListingDraft(d.id); if (draftId === d.id) setDraftId(null); router.refresh(); }} className="p-1 text-muted hover:text-red-400"><Trash2 size={15} /></button>}

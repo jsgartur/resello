@@ -40,6 +40,7 @@ export async function POST(req: NextRequest) {
       topFit: (form.get("topFit") as StudioOptions["topFit"]) || undefined,
       pantsFit: (form.get("pantsFit") as StudioOptions["pantsFit"]) || undefined,
       wear: (form.get("wear") as StudioOptions["wear"]) || "auto",
+      quality: (["1K", "2K", "4K"].includes(String(form.get("quality"))) ? String(form.get("quality")) : "2K") as StudioOptions["quality"],
       hint: String(form.get("hint") || "").slice(0, 300),
       custom: String(form.get("custom") || ""),
     };

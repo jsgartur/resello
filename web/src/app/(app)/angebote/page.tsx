@@ -4,7 +4,7 @@ import { read } from "@/lib/store";
 import { eur, relDays } from "@/lib/format";
 import { PageHeader, Empty } from "@/components/ui";
 import { queueRelist, queuePriceDrop, queuePriceChange, updateListingPrices, cancelJob } from "@/app/actions";
-import { Repeat, TrendingDown, Eye, Heart, Clock, X, Search } from "lucide-react";
+import { Repeat, TrendingDown, Eye, Heart, Clock, X, Search, Plus, FilePen, Wand2 } from "lucide-react";
 
 const FILTERS = [
   { key: "active", label: "Aktiv" },
@@ -29,11 +29,35 @@ export default async function Listings({ searchParams }: { searchParams: Promise
     .filter((l) => !q || l.title.toLowerCase().includes(q.toLowerCase()))
     .sort((a, b) => String(a.listed_at).localeCompare(String(b.listed_at)))
     .slice(0, 300);
+  const drafts = [...d.listing_drafts].filter((x) => x.status !== "uploaded").reverse().slice(0, 12);
   const extensionOnline = d.accounts.some((a) => a.connection === "extension" && a.last_sync_at && Date.now() - new Date(a.last_sync_at).getTime() < 3600000);
 
   return (
     <>
-      <PageHeader title="Angebote" sub={`${listings.length} Artikel · älteste zuerst · Mindestpreis = Untergrenze für Preissenkungen`} />
+      <PageHeader title="Angebote" sub={`${listings.length} Artikel · älteste zuerst · Mindestpreis = Untergrenze für Preissenkungen`}>
+        <Link href="/studio" className="btn-ghost"><Wand2 size={15} />Bildstudio</Link>
+        <Link href="/neu" className="btn-primary"><Plus size={15} />Angebot erstellen</Link>
+      </PageHeader>
+
+      {drafts.length > 0 && (
+        <section className="card mb-5 p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm font-medium"><FilePen size={15} className="text-accent" />Entwürfe <span className="badge">{drafts.length}</span></div>
+            <Link href="/neu" className="text-xs text-muted hover:text-white">Alle ansehen →</Link>
+          </div>
+          <div className="flex gap-3 overflow-x-auto pb-1 no-scrollbar">
+            {drafts.map((x) => (
+              <Link key={x.id} href={`/neu?id=${x.id}`} className="w-32 shrink-0 overflow-hidden rounded-xl border border-line bg-panel-2/40 hover:border-accent/60">
+                {x.photos[0] ? <img src={`/api/bilder/${x.photos[0]}`} alt="" className="aspect-[4/5] w-full object-cover" /> : <div className="aspect-[4/5] bg-panel-2" />}
+                <div className="p-2">
+                  <div className="truncate text-xs">{x.title || "Entwurf ohne Titel"}</div>
+                  <div className="mt-0.5 text-[11px] text-muted">{x.status === "queued" ? "Wird hochgeladen…" : x.status === "failed" ? "Fehlgeschlagen" : x.price ? `${x.price} €` : `${x.photos.length} Fotos`}</div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
         {FILTERS.map((x) => (
